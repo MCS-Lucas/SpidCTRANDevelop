@@ -1,0 +1,245 @@
+@page "/usuarios/novo"
+@page "/usuarios/editar/{IdUsuario:int}"
+@using Microsoft.EntityFrameworkCore
+@using Spid.Data
+@inject AppDbContext Db
+@inject UserSession UserSession
+@inject NavigationManager Nav
+
+<PageTitle>@(editando ? "Editar" : "Novo") Usuário — SPID</PageTitle>
+
+<h3 class="mb-4">@(editando ? "✏️ Editar Usuário" : "➕ Novo Usuário")</h3>
+
+@if (!isAdmin)
+{
+    <div class="alert alert-warning">Você não tem permissão para acessar esta página.</div>
+}
+else
+{
+    @if (!string.IsNullOrEmpty(erro))
+    {
+        <div class="alert alert-danger">@erro</div>
+    }
+
+    @if (!string.IsNullOrEmpty(sucesso))
+    {
+        <div class="alert alert-success">@sucesso</div>
+    }
+
+    <div class="card shadow-sm" style="max-width: 600px;">
+        <div class="card-body">
+            <EditForm Model="this" OnValidSubmit="Salvar">
+                <div class="mb-3">
+                    <label class="form-label">Nome completo</label>
+                    <InputText @bind-Value="nome" class="form-control" placeholder="Ex: João Silva" />
+                </div>
+
+                <div class="mb-3">
+                    <label class="form-label">E-mail</label>
+                    <InputText @bind-Value="email" class="form-control" placeholder="Ex: joao@spid.com" />
+                </div>
+
+                <div class="row mb-3">
+                    <div class="col-6">
+                        <label class="form-label">Ponto (login)</label>
+                        <InputText @bind-Value="ponto" class="form-control" placeholder="Ex: 6845" />
+                    </div>
+                    <div class="col-6">
+                        <label class="form-label">CPF</label>
+                        <InputText @bind-Value="cpf" class="form-control" placeholder="000.000.000-00" />
+                    </div>
+                </div>
+
+                <div class="row mb-3">
+                    <div class="col-6">
+                        <label class="form-label">Perfil</label>
+                        <InputSelect @bind-Value="perfil" class="form-select">
+                            <option value="">Selecione...</option>
+                            <option value="Admin">Admin</option>
+                            <option value="Gestor Principal">Gestor Principal</option>
+                            <option value="Gestor Secundário">Gestor Secundário</option>
+                        </InputSelect>
+                    </div>
+                    <div class="col-6">
+                        <label class="form-label">Setor</label>
+                        <InputSelect @bind-Value="setorId" class="form-select">
+                            <option value="0">Nenhum</option>
+                            @if (setores is not null)
+                            {
+                                @foreach (var s in setores)
+                                {
+                                    <option value="@s.Id">@s.Nome</option>
+                                }
+                            }
+                        </InputSelect>
+                    </div>
+                </div>
+
+                <div class="mb-3">
+                    <label class="form-label">
+                        @(editando ? "Nova senha (deixe em branco para manter)" : "Senha")
+                    </label>
+                    <InputText @bind-Value="senha" type="password" class="form-control"
+                               placeholder="@(editando ? "••••••••" : "Digite a senha")" />
+                </div>
+
+                <div class="mb-3 form-check">
+                    <InputCheckbox @bind-Value="ativo" class="form-check-input" id="ativoCheck" />
+                    <label class="form-check-label" for="ativoCheck">Usuário ativo</label>
+                </div>
+
+                <div class="d-flex gap-2">
+                    <button type="submit" class="btn btn-primary" disabled="@salvando">
+                        @if (salvando)
+                        {
+                            <span class="spinner-border spinner-border-sm me-2"></span>
+                        }
+                        @(editando ? "Salvar Alterações" : "Criar Usuário")
+                    </button>
+                    <a href="/usuarios" class="btn btn-outline-secondary">Cancelar</a>
+                </div>
+            </EditForm>
+        </div>
+    </div>
+}
+
+@code {
+    [Parameter] public int IdUsuario { get; set; }
+
+    private bool isAdmin;
+    private bool editando;
+    private bool salvando;
+    private string? erro;
+    private string? sucesso;
+
+    private string nome = "";
+    private string email = "";
+    private string ponto = "";
+    private string? cpf;
+    private string perfil = "";
+    private int setorId;
+    private string senha = "";
+    private bool ativo = true;
+
+    private List<Setor>? setores;
+    private Usuario? usuarioEditando;
+
+    protected override async Task OnInitializedAsync()
+    {
+        if (!UserSession.IsAuthenticated)
+        {
+            Nav.NavigateTo("/login");
+            return;
+        }
+
+        isAdmin = UserSession.UsuarioLogado!.Perfil == "Admin";
+        if (!isAdmin) return;
+
+        setores = await Db.Setores.OrderBy(s => s.Nome).ToListAsync();
+
+        if (IdUsuario > 0)
+        {
+            editando = true;
+            usuarioEditando = await Db.Usuarios.FindAsync(IdUsuario);
+
+            if (usuarioEditando is null)
+            {
+                Nav.NavigateTo("/usuarios");
+                return;
+            }
+
+            nome = usuarioEditando.Nome;
+            email = usuarioEditando.Email;
+            ponto = usuarioEditando.Ponto;
+            cpf = usuarioEditando.Cpf;
+            perfil = usuarioEditando.Perfil;
+            setorId = usuarioEditando.SetorId ?? 0;
+            ativo = usuarioEditando.Ativo;
+        }
+    }
+
+    private async Task Salvar()
+    {
+        erro = null;
+        sucesso = null;
+        salvando = true;
+
+        try
+        {
+            // Validações
+            if (string.IsNullOrWhiteSpace(nome) || string.IsNullOrWhiteSpace(email) ||
+                string.IsNullOrWhiteSpace(ponto) || string.IsNullOrWhiteSpace(perfil))
+            {
+                erro = "Preencha todos os campos obrigatórios (Nome, E-mail, Ponto, Perfil).";
+                return;
+            }
+
+            if (!editando && string.IsNullOrWhiteSpace(senha))
+            {
+                erro = "A senha é obrigatória para novos usuários.";
+                return;
+            }
+
+            // Verificar ponto duplicado
+            var idAtual = usuarioEditando?.Id ?? 0;
+            var pontoDuplicado = await Db.Usuarios
+                .AnyAsync(u => u.Ponto == ponto && u.Id != idAtual);
+            if (pontoDuplicado)
+            {
+                erro = $"Já existe um usuário com o ponto \"{ponto}\".";
+                return;
+            }
+
+            if (editando && usuarioEditando is not null)
+            {
+                usuarioEditando.Nome = nome;
+                usuarioEditando.Email = email;
+                usuarioEditando.Ponto = ponto;
+                usuarioEditando.Cpf = cpf;
+                usuarioEditando.Perfil = perfil;
+                usuarioEditando.SetorId = setorId > 0 ? setorId : null;
+                usuarioEditando.Ativo = ativo;
+
+                if (!string.IsNullOrWhiteSpace(senha))
+                {
+                    usuarioEditando.SenhaHash = UserSession.HashSenha(usuarioEditando, senha);
+                }
+
+                await Db.SaveChangesAsync();
+                sucesso = "Usuário atualizado com sucesso!";
+            }
+            else
+            {
+                var novoUsuario = new Usuario
+                {
+                    Nome = nome,
+                    Email = email,
+                    Ponto = ponto,
+                    Cpf = cpf,
+                    Perfil = perfil,
+                    SetorId = setorId > 0 ? setorId : null,
+                    Ativo = ativo
+                };
+                novoUsuario.SenhaHash = UserSession.HashSenha(novoUsuario, senha);
+
+                Db.Usuarios.Add(novoUsuario);
+                await Db.SaveChangesAsync();
+                sucesso = "Usuário criado com sucesso!";
+
+                // Limpar campos
+                nome = email = ponto = perfil = senha = "";
+                cpf = null;
+                setorId = 0;
+                ativo = true;
+            }
+        }
+        catch (Exception ex)
+        {
+            erro = $"Erro ao salvar: {ex.Message}";
+        }
+        finally
+        {
+            salvando = false;
+        }
+    }
+}

@@ -1,0 +1,95 @@
+@page "/login"
+@layout LoginLayout
+@using Microsoft.EntityFrameworkCore
+@using Microsoft.AspNetCore.Components.Forms
+@using Microsoft.AspNetCore.Components.Web
+@using Spid.Data
+@inject AppDbContext Db
+@inject UserSession UserSession
+@inject NavigationManager Nav
+
+<PageTitle>Login — SPID</PageTitle>
+
+<div class="login-container">
+    <div class="login-card">
+        <h2 class="text-center mb-4">🔐 SPID</h2>
+        <p class="text-center text-muted mb-4">Sistema de Gestão de Viagens</p>
+
+        @if (!string.IsNullOrEmpty(erro))
+        {
+            <div class="alert alert-danger" role="alert">
+                @erro
+            </div>
+        }
+
+        <EditForm Model="this" OnValidSubmit="FazerLogin">
+            <div class="mb-3">
+                <label for="ponto" class="form-label">Ponto</label>
+                <InputText id="ponto" @bind-Value="ponto" class="form-control" placeholder="Ex: 0001" />
+            </div>
+
+            <div class="mb-3">
+                <label for="senha" class="form-label">Senha</label>
+                <InputText id="senha" @bind-Value="senha" type="password" class="form-control"
+                           placeholder="Digite sua senha" />
+            </div>
+
+            <button type="submit" class="btn btn-primary w-100" disabled="@carregando">
+                @if (carregando)
+                {
+                    <span class="spinner-border spinner-border-sm me-2" role="status"></span>
+                }
+                Entrar
+            </button>
+        </EditForm>
+    </div>
+</div>
+
+@code {
+    private string ponto { get; set; } = "";
+    private string senha { get; set; } = "";
+
+    private string? erro;
+    private bool carregando;
+
+    protected override void OnInitialized()
+    {
+        // Se já está logado, redireciona para a home
+        if (UserSession.IsAuthenticated)
+        {
+            Nav.NavigateTo("/");
+        }
+    }
+
+    private async Task FazerLogin()
+    {
+        erro = null;
+        carregando = true;
+
+        if (string.IsNullOrWhiteSpace(ponto) || string.IsNullOrWhiteSpace(senha))
+        {
+            erro = "Preencha o ponto e a senha.";
+            carregando = false;
+            return;
+        }
+
+        var usuario = await Db.Usuarios
+            .FirstOrDefaultAsync(u => u.Ponto == ponto && u.Ativo);
+
+        if (usuario is null)
+        {
+            erro = "Ponto não encontrado ou usuário inativo.";
+            carregando = false;
+            return;
+        }
+
+        if (!UserSession.Login(usuario, senha))
+        {
+            erro = "Senha incorreta.";
+            carregando = false;
+            return;
+        }
+
+        Nav.NavigateTo("/");
+    }
+}

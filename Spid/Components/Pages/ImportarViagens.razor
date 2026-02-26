@@ -1,0 +1,147 @@
+@page "/importar-viagens"
+@using Microsoft.EntityFrameworkCore
+@using Microsoft.AspNetCore.Components.Forms
+@using Spid.Data
+@inject AppDbContext Db
+@inject UserSession UserSession
+@inject ImportacaoService ImportacaoService
+@inject NavigationManager Nav
+
+<PageTitle>Importar Viagens — SPID</PageTitle>
+
+<h3 class="mb-4">📥 Importar Viagens</h3>
+
+@if (!temPermissao)
+{
+    <div class="alert alert-warning">
+        Você não tem permissão para acessar esta funcionalidade.
+    </div>
+}
+else
+{
+    <div class="card shadow-sm">
+        <div class="card-body">
+            <p class="text-muted">
+                Selecione um arquivo Excel (.xlsx) com a tabela de viagens para importar.
+                Viagens com <strong>ID Viagem Parceiro</strong> já existente serão ignoradas automaticamente.
+            </p>
+
+            <div class="mb-3">
+                <label for="arquivo" class="form-label">Arquivo Excel</label>
+                <InputFile id="arquivo" class="form-control" OnChange="OnArquivoSelecionado" accept=".xlsx" />
+            </div>
+
+            @if (arquivoSelecionado is not null)
+            {
+                <p class="text-muted small">
+                    📎 <strong>@arquivoSelecionado.Name</strong> (@FormatarTamanho(arquivoSelecionado.Size))
+                </p>
+            }
+
+            <button class="btn btn-primary" @onclick="Importar"
+                    disabled="@(arquivoSelecionado is null || processando)">
+                @if (processando)
+                {
+                    <span class="spinner-border spinner-border-sm me-2" role="status"></span>
+                    <span>Importando...</span>
+                }
+                else
+                {
+                    <span>Importar</span>
+                }
+            </button>
+        </div>
+    </div>
+
+    @if (resultado is not null)
+    {
+        <div class="mt-4">
+            <div class="alert alert-success">
+                ✅ <strong>@resultado.Importadas</strong> viagem(ns) importada(s) com sucesso.
+            </div>
+
+            @if (resultado.Ignoradas > 0)
+            {
+                <div class="alert alert-info">
+                    ⏭️ <strong>@resultado.Ignoradas</strong> viagem(ns) ignorada(s) (já existiam no banco).
+                </div>
+            }
+
+            @if (resultado.Erros.Count > 0)
+            {
+                <div class="alert alert-danger">
+                    <p>❌ <strong>@resultado.Erros.Count</strong> erro(s) durante a importação:</p>
+                    <ul class="mb-0">
+                        @foreach (var erro in resultado.Erros)
+                        {
+                            <li>@erro</li>
+                        }
+                    </ul>
+                </div>
+            }
+        </div>
+    }
+}
+
+@code {
+    private bool temPermissao;
+    private IBrowserFile? arquivoSelecionado;
+    private bool processando;
+    private ImportacaoResult? resultado;
+
+    protected override async Task OnInitializedAsync()
+    {
+        if (!UserSession.IsAuthenticated)
+        {
+            Nav.NavigateTo("/login");
+            return;
+        }
+
+        // Verificar se o perfil do usuário tem acesso ao recurso "ImportarViagens"
+        var perfil = UserSession.UsuarioLogado!.Perfil;
+        temPermissao = await Db.PerfisRecurso
+            .AnyAsync(pr => pr.Perfil == perfil && pr.Recurso.Chave == "ImportarViagens");
+    }
+
+    private void OnArquivoSelecionado(InputFileChangeEventArgs e)
+    {
+        arquivoSelecionado = e.File;
+        resultado = null;
+    }
+
+    private async Task Importar()
+    {
+        if (arquivoSelecionado is null) return;
+
+        processando = true;
+        resultado = null;
+
+        try
+        {
+            // Limite de 10MB
+            using var stream = arquivoSelecionado.OpenReadStream(maxAllowedSize: 10 * 1024 * 1024);
+            using var ms = new MemoryStream();
+            await stream.CopyToAsync(ms);
+            ms.Position = 0;
+
+            resultado = await ImportacaoService.ImportarExcelAsync(ms);
+        }
+        catch (Exception ex)
+        {
+            resultado = new ImportacaoResult();
+            resultado.Erros.Add($"Erro ao processar o arquivo: {ex.Message}");
+        }
+        finally
+        {
+            processando = false;
+            arquivoSelecionado = null;
+        }
+    }
+
+    private static string FormatarTamanho(long bytes)
+    {
+        if (bytes < 1024) return $"{bytes} B";
+        if (bytes < 1024 * 1024) return $"{bytes / 1024.0:F1} KB";
+        return $"{bytes / (1024.0 * 1024.0):F1} MB";
+    }
+}

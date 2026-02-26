@@ -1,0 +1,371 @@
+@page "/status-conferencias"
+@using Microsoft.EntityFrameworkCore
+@using Spid.Data
+@inject AppDbContext Db
+@inject UserSession UserSession
+@inject NavigationManager Nav
+
+<PageTitle>Status das Conferências — SPID</PageTitle>
+
+<h3 class="mb-4">📊 Status das Conferências Mensais</h3>
+
+@if (!isAdmin)
+{
+    <div class="alert alert-warning">Você não tem permissão para acessar esta página.</div>
+}
+else
+{
+    <!-- Filtro e Resumo -->
+    <div class="card shadow-sm mb-4">
+        <div class="card-body">
+            <div class="row g-3 align-items-center">
+                <div class="col-md-4">
+                    <label class="form-label small mb-1">Mês/Ano</label>
+                    <input type="month" class="form-control form-control-sm" value="@filtroMes.ToString("yyyy-MM")"
+                           @onchange="OnMesAlterado" />
+                </div>
+                @if (setoresStatus is not null && setoresStatus.Count > 0)
+                {
+                    <div class="col-md-4">
+                        <div class="card text-center border-success">
+                            <div class="card-body py-2">
+                                <div class="fs-3 fw-bold text-success">@setoresStatus.Count(s => s.Confirmado)</div>
+                                <small class="text-muted">Setores Confirmados</small>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-md-4">
+                        <div class="card text-center border-warning">
+                            <div class="card-body py-2">
+                                <div class="fs-3 fw-bold text-warning">@setoresStatus.Count(s => !s.Confirmado)</div>
+                                <small class="text-muted">Setores Pendentes</small>
+                            </div>
+                        </div>
+                    </div>
+                }
+            </div>
+        </div>
+    </div>
+
+    @if (setoresStatus is null)
+    {
+        <p class="text-muted">Carregando...</p>
+    }
+    else if (setoresStatus.Count == 0)
+    {
+        <div class="alert alert-info">Nenhum setor com viagens neste mês.</div>
+    }
+    else
+    {
+        <div class="table-responsive">
+            <table class="table table-hover align-middle">
+                <thead class="table-dark">
+                    <tr>
+                        <th class="text-center">Setor</th>
+                        <th class="text-center">Viagens</th>
+                        <th class="text-center">Pendentes</th>
+                        <th class="text-center">OK</th>
+                        <th class="text-center">Contestadas</th>
+                        <th class="text-center">Gestor Principal</th>
+                        <th class="text-center" role="button" style="cursor:pointer;" @onclick="AlternarOrdemStatus">
+                            Status @(ordenarStatusAsc ? "▲" : "▼")
+                        </th>
+                        <th class="text-center">Confirmado por</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach (var s in setoresStatus)
+                    {
+                        <tr>
+                            <td class="text-center"><strong>@s.SetorNome</strong></td>
+                            <td class="text-center">@s.TotalViagens</td>
+                            <td class="text-center">
+                                @if (s.Pendentes > 0)
+                                {
+                                    <span class="badge bg-warning text-dark">@s.Pendentes</span>
+                                }
+                                else
+                                {
+                                    <span class="text-muted">0</span>
+                                }
+                            </td>
+                            <td class="text-center">
+                                @if (s.Aprovadas > 0)
+                                {
+                                    <button class="btn btn-sm btn-outline-success" @onclick="() => VerOK(s)">
+                                        ✅ @s.Aprovadas
+                                    </button>
+                                }
+                                else
+                                {
+                                    <span class="text-muted">0</span>
+                                }
+                            </td>
+                            <td class="text-center">
+                                @if (s.Contestadas > 0)
+                                {
+                                    <button class="btn btn-sm btn-outline-danger" @onclick="() => VerContestadas(s)">
+                                        ❌ @s.Contestadas
+                                    </button>
+                                }
+                                else
+                                {
+                                    <span class="text-muted">0</span>
+                                }
+                            </td>
+                            <td class="text-center">
+                                @if (!string.IsNullOrEmpty(s.GestorPrincipal))
+                                {
+                                    <strong>@s.GestorPrincipal</strong>
+                                }
+                                else
+                                {
+                                    <span class="text-muted fst-italic">Sem gestor</span>
+                                }
+                            </td>
+                            <td class="text-center">
+                                @if (s.Confirmado)
+                                {
+                                    <span class="badge bg-success">✅ Confirmado</span>
+                                }
+                                else if (s.Pendentes == 0 && s.TotalViagens > 0)
+                                {
+                                    <span class="badge bg-info">Aguardando confirmação</span>
+                                }
+                                else
+                                {
+                                    <span class="badge bg-warning text-dark">⏳ Pendente</span>
+                                }
+                            </td>
+                            <td class="text-center">
+                                @if (s.Confirmado)
+                                {
+                                    <small>@s.ConfirmadoPor — @s.DataConfirmacao?.ToString("dd/MM HH:mm")</small>
+                                }
+                                else
+                                {
+                                    <span class="text-muted">—</span>
+                                }
+                            </td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        </div>
+    }
+}
+
+@* Modal de detalhes das viagens *@
+@if (detalheViagens is not null)
+{
+    <div class="modal d-block" tabindex="-1" style="background-color: rgba(0,0,0,0.5);">
+        <div class="modal-dialog modal-dialog-centered modal-xl modal-dialog-scrollable">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">
+                        @(detalheStatus == "OK" ? "✅ Viagens Aprovadas" : "❌ Viagens Contestadas")
+                        — @detalheSetorNome
+                    </h5>
+                    <button type="button" class="btn-close" @onclick="FecharDetalhes"></button>
+                </div>
+                <div class="modal-body">
+                    @if (detalheViagens.Count == 0)
+                    {
+                        <p class="text-muted">Nenhuma viagem encontrada.</p>
+                    }
+                    else
+                    {
+                        <div class="table-responsive">
+                            <table class="table table-sm table-hover align-middle">
+                                <thead class="table-light">
+                                    <tr>
+                                        <th>Data</th>
+                                        <th>Colaborador</th>
+                                        <th>Origem</th>
+                                        <th>Destino</th>
+                                        <th>Parceiro</th>
+                                        <th class="text-end">V. Cotado</th>
+                                        <th class="text-end">V. Final</th>
+                                        <th>Motivo da Viagem</th>
+                                        @if (detalheStatus == "Contestada")
+                                        {
+                                            <th>Motivo Contestação</th>
+                                        }
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    @foreach (var v in detalheViagens)
+                                    {
+                                        <tr>
+                                            <td>@v.DataViagem.ToString("dd/MM/yyyy")</td>
+                                            <td>@v.Colaborador.Nome</td>
+                                            <td>@v.Origem</td>
+                                            <td>@v.Destino</td>
+                                            <td>@v.Parceiro.Nome</td>
+                                            <td class="text-end">R$ @v.ValorCotado.ToString("N2")</td>
+                                            <td class="text-end">R$ @v.ValorFinal.ToString("N2")</td>
+                                            <td>@v.Motivo</td>
+                                            @if (detalheStatus == "Contestada")
+                                            {
+                                                <td><span class="text-danger">@v.MotivoContestacao</span></td>
+                                            }
+                                        </tr>
+                                    }
+                                </tbody>
+                            </table>
+                        </div>
+                    }
+                </div>
+                <div class="modal-footer">
+                    <button class="btn btn-secondary" @onclick="FecharDetalhes">Fechar</button>
+                </div>
+            </div>
+        </div>
+    </div>
+}
+
+@code {
+    private bool isAdmin;
+    private DateTime filtroMes = new DateTime(DateTime.Now.Year, DateTime.Now.Month, 1);
+    private List<SetorStatusDto>? setoresStatus;
+
+    // Detalhes modal
+    private List<Viagem>? detalheViagens;
+    private string detalheSetorNome = "";
+    private string detalheStatus = "";
+
+    protected override async Task OnInitializedAsync()
+    {
+        if (!UserSession.IsAuthenticated)
+        {
+            Nav.NavigateTo("/login");
+            return;
+        }
+
+        isAdmin = UserSession.UsuarioLogado!.Perfil == "Admin";
+        if (!isAdmin) return;
+
+        await Carregar();
+    }
+
+    private async Task Carregar()
+    {
+        var ano = filtroMes.Year;
+        var mes = filtroMes.Month;
+        var mesInicio = new DateOnly(ano, mes, 1);
+        var mesFim = mesInicio.AddMonths(1);
+
+        // Viagens agrupadas por setor
+        var viagensPorSetor = await Db.Viagens
+            .Where(v => v.DataViagem >= mesInicio && v.DataViagem < mesFim)
+            .GroupBy(v => new { v.SetorId, v.Setor.Nome })
+            .Select(g => new
+            {
+                g.Key.SetorId,
+                SetorNome = g.Key.Nome,
+                Total = g.Count(),
+                Pendentes = g.Count(v => v.StatusConferenciaGestor == "Pendente"),
+                Aprovadas = g.Count(v => v.StatusConferenciaGestor == "OK"),
+                Contestadas = g.Count(v => v.StatusConferenciaGestor == "Contestada")
+            })
+            .ToListAsync();
+
+        // Confirmações do mês
+        var confirmacoes = await Db.ConferenciasMensais
+            .Where(c => c.Ano == ano && c.Mes == mes)
+            .Include(c => c.Usuario)
+            .ToDictionaryAsync(c => c.SetorId);
+
+        // Gestor Principal por setor
+        var gestorPrincipalPorSetor = await Db.Usuarios
+            .Where(u => u.SetorId.HasValue && u.Perfil == "Gestor Principal" && u.Ativo)
+            .ToDictionaryAsync(u => u.SetorId!.Value, u => u.Nome);
+
+        setoresStatus = viagensPorSetor.Select(v =>
+        {
+            var conf = confirmacoes.GetValueOrDefault(v.SetorId);
+            return new SetorStatusDto
+            {
+                SetorId = v.SetorId,
+                SetorNome = v.SetorNome,
+                TotalViagens = v.Total,
+                Pendentes = v.Pendentes,
+                Aprovadas = v.Aprovadas,
+                Contestadas = v.Contestadas,
+                GestorPrincipal = gestorPrincipalPorSetor.GetValueOrDefault(v.SetorId) ?? "",
+                Confirmado = conf is not null,
+                ConfirmadoPor = conf?.Usuario.Nome,
+                DataConfirmacao = conf?.DataConfirmacao
+            };
+        })
+        .ToList();
+
+        OrdenarStatus();
+    }
+
+    private bool ordenarStatusAsc;
+
+    private void AlternarOrdemStatus()
+    {
+        ordenarStatusAsc = !ordenarStatusAsc;
+        OrdenarStatus();
+    }
+
+    private void OrdenarStatus()
+    {
+        if (setoresStatus is null) return;
+
+        setoresStatus = ordenarStatusAsc
+            ? setoresStatus.OrderBy(s => s.Confirmado).ThenBy(s => s.SetorNome).ToList()
+            : setoresStatus.OrderByDescending(s => s.Confirmado).ThenBy(s => s.SetorNome).ToList();
+    }
+
+    private async Task OnMesAlterado(ChangeEventArgs e)
+    {
+        if (DateTime.TryParse(e.Value?.ToString() + "-01", out var data))
+        {
+            filtroMes = data;
+            await Carregar();
+        }
+    }
+
+    private Task VerOK(SetorStatusDto setor) => VerDetalhes(setor, "OK");
+    private Task VerContestadas(SetorStatusDto setor) => VerDetalhes(setor, "Contestada");
+
+    private async Task VerDetalhes(SetorStatusDto setor, string status)
+    {
+        detalheSetorNome = setor.SetorNome;
+        detalheStatus = status;
+
+        var mesInicio = new DateOnly(filtroMes.Year, filtroMes.Month, 1);
+        var mesFim = mesInicio.AddMonths(1);
+
+        detalheViagens = await Db.Viagens
+            .Include(v => v.Colaborador)
+            .Include(v => v.Parceiro)
+            .Where(v => v.SetorId == setor.SetorId
+                     && v.DataViagem >= mesInicio && v.DataViagem < mesFim
+                     && v.StatusConferenciaGestor == status)
+            .OrderByDescending(v => v.DataViagem)
+            .ToListAsync();
+    }
+
+    private void FecharDetalhes()
+    {
+        detalheViagens = null;
+    }
+
+    private class SetorStatusDto
+    {
+        public int SetorId { get; set; }
+        public string SetorNome { get; set; } = "";
+        public int TotalViagens { get; set; }
+        public int Pendentes { get; set; }
+        public int Aprovadas { get; set; }
+        public int Contestadas { get; set; }
+        public string GestorPrincipal { get; set; } = "";
+        public bool Confirmado { get; set; }
+        public string? ConfirmadoPor { get; set; }
+        public DateTime? DataConfirmacao { get; set; }
+    }
+}

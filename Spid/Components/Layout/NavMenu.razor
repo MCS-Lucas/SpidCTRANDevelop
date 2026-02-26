@@ -1,0 +1,77 @@
+﻿@using Microsoft.EntityFrameworkCore
+@using Spid.Data
+@inject UserSession UserSession
+@inject AppDbContext Db
+
+<div class="top-row ps-3 navbar navbar-dark">
+    <div class="container-fluid">
+        <a class="navbar-brand" href="">Spid</a>
+    </div>
+</div>
+
+<input type="checkbox" title="Navigation menu" class="navbar-toggler" />
+
+<div class="nav-scrollable" onclick="document.querySelector('.navbar-toggler').click()">
+    <nav class="nav flex-column">
+        <div class="nav-item px-3">
+            <NavLink class="nav-link" href="" Match="NavLinkMatch.All">
+                <span class="bi bi-house-door-fill-nav-menu" aria-hidden="true"></span> Home
+            </NavLink>
+        </div>
+
+        @if (podeImportar)
+        {
+            <div class="nav-item px-3">
+                <NavLink class="nav-link" href="importar-viagens">
+                    <span class="bi bi-list-nested-nav-menu" aria-hidden="true"></span> Importar Viagens
+                </NavLink>
+            </div>
+        }
+
+        @if (isAdmin)
+        {
+            <div class="nav-item px-3">
+                <NavLink class="nav-link" href="usuarios">
+                    <span class="bi bi-list-nested-nav-menu" aria-hidden="true"></span> Gerenciar Usuários
+                </NavLink>
+            </div>
+            <div class="nav-item px-3">
+                <NavLink class="nav-link" href="status-conferencias">
+                    <span class="bi bi-list-nested-nav-menu" aria-hidden="true"></span> Status Conferências
+                </NavLink>
+            </div>
+        }
+
+        @if (podeAnalisar)
+        {
+            <div class="nav-item px-3">
+                <NavLink class="nav-link" href="analisar-viagens">
+                    <span class="bi bi-list-nested-nav-menu" aria-hidden="true"></span> Analisar Viagens
+                </NavLink>
+            </div>
+        }
+    </nav>
+</div>
+
+@code {
+    private bool podeImportar;
+    private bool podeAnalisar;
+    private bool isAdmin;
+
+    protected override async Task OnInitializedAsync()
+    {
+        if (UserSession.IsAuthenticated)
+        {
+            var perfil = UserSession.UsuarioLogado!.Perfil;
+            isAdmin = perfil == "Admin";
+
+            var permissoes = await Db.PerfisRecurso
+                .Where(pr => pr.Perfil == perfil)
+                .Select(pr => pr.Recurso.Chave)
+                .ToListAsync();
+
+            podeImportar = permissoes.Contains("ImportarViagens");
+            podeAnalisar = permissoes.Contains("AnalisarViagens");
+        }
+    }
+}
