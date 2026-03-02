@@ -7,9 +7,9 @@ using Spid.Services;
 
 var builder = WebApplication.CreateBuilder(args);
 
-// DbContext com SQLite
+// DbContext com SQL Server
 builder.Services.AddDbContext<AppDbContext>(options =>
-    options.UseSqlite(builder.Configuration.GetConnectionString("DefaultConnection")));
+    options.UseSqlServer(builder.Configuration.GetConnectionString("DefaultConnection")));
 
 // Add services to the container.
 builder.Services.AddRazorComponents()
@@ -25,33 +25,6 @@ using (var scope = app.Services.CreateScope())
 {
     var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
     db.Database.Migrate();
-
-    // Seed de usuários
-    if (!db.Usuarios.Any())
-    {
-        var admin = new Usuario
-        {
-            Nome = "Admin Teste",
-            Email = "admin@spid.com",
-            Ponto = "0001",
-            Perfil = "Admin",
-            Ativo = true
-        };
-        admin.SenhaHash = UserSession.HashSenha(admin, "admin123");
-
-        var gestor = new Usuario
-        {
-            Nome = "Gestor Teste",
-            Email = "gestor@spid.com",
-            Ponto = "6845",
-            Perfil = "Gestor Principal",
-            Ativo = true
-        };
-        gestor.SenhaHash = UserSession.HashSenha(gestor, "gestor123");
-
-        db.Usuarios.AddRange(admin, gestor);
-        db.SaveChanges();
-    }
 
     // Seed de recursos e permissões
     if (!db.Recursos.Any())
