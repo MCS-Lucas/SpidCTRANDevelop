@@ -1,11 +1,21 @@
+using Microsoft.AspNetCore.Hosting.StaticWebAssets;
 using Microsoft.EntityFrameworkCore;
 using Spid.Components;
 using Spid.Data; // aqui vai ficar o AppDbContext
 using Spid.Services;
 
 
-
 var builder = WebApplication.CreateBuilder(args);
+
+// ✅ Habilita Static Web Assets também no ambiente "Docker" (dev)
+if (builder.Environment.IsEnvironment("Docker"))
+{
+    StaticWebAssetsLoader.UseStaticWebAssets(builder.Environment, builder.Configuration);
+}
+
+// DbContext com SQL Server
+builder.Services.AddDbContext<AppDbContext>(options =>
+    options.UseSqlServer(builder.Configuration.GetConnectionString("DefaultConnection")));
 
 // DbContext com SQL Server
 builder.Services.AddDbContext<AppDbContext>(options =>
