@@ -44,17 +44,19 @@
                 }
                 Entrar
             </button>
+
             <br><br/>
- 
-            <a href="/primeiro-acesso" type="button" class="btn btn-secondary w-100" disabled="@carregando">
+
+            <button type="submit" class="btn btn-secondary w-100" disabled="@carregando">
                 @if (carregando)
                 {
-                   <span class="spinner-border spinner-border-sm me-2" role="status"></span>
+                    <span class="spinner-border spinner-border-sm me-2" role="status"></span>
                 }
-               Meu Primeiro Acesso
-            </a>
-            <a href="" class="text-center mb-2 d-block">Esqueceu sua senha?</a>
-
+                Meu Primeiro Acesso
+            </button>
+            <br><br/>
+            <a href="" class="text-center mb-2 d-block">Alterar Senha</a>
+            
         </EditForm>
     </div>
 </div>
@@ -105,5 +107,12 @@
         }
 
         Nav.NavigateTo("/");
+    }
+
+    private async Task FazerPrimeiroAcesso()
+    {
+
+        // Lógica para primeiro acesso (ex: redirecionar para uma página de cadastro ou recuperação de senha)
+        Nav.NavigateTo("/primeiro-acesso");
     }
 }

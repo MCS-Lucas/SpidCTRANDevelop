@@ -11,8 +11,8 @@
 <h3 class="mb-4">@(editando ? "✏️ Editar Usuário" : "➕ Novo Usuário")</h3>
 
 @if (!isAdmin)
-{
-    <div class="alert alert-warning">Você não tem permissão para acessar esta página.</div>
+    {
+        <div class="alert alert-warning">Você não tem permissão para acessar esta página.</div>
 }
 else
 {
@@ -55,9 +55,19 @@ else
                         <label class="form-label">Perfil</label>
                         <InputSelect @bind-Value="perfil" class="form-select">
                             <option value="">Selecione...</option>
-                            <option value="Admin">Admin</option>
-                            <option value="Gestor Principal">Gestor Principal</option>
-                            <option value="Gestor Secundário">Gestor Secundário</option>
+                            @if (isAdmin)
+                            {
+                                <option value="Admin">Admin</option>
+                                <option value="Gestor Principal">Gestor Principal</option>
+                                <option value="Gestor Secundário">Gestor Secundário</option>
+                                <option value="Colaborador">Colaborador</option>
+                            }
+                            else
+                            {
+                                <option value="Colaborador">Colaborador</option>
+                            }
+
+
                         </InputSelect>
                     </div>
                     <div class="col-6">
