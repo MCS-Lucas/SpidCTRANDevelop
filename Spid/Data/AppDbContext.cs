@@ -67,6 +67,15 @@ public class AppDbContext : DbContext
             .Property(v => v.ValorFinal)
             .HasPrecision(18, 2);
 
+        // Precisão time(0) para horários — armazena apenas HH:MM:SS, sem frações
+        modelBuilder.Entity<Viagem>()
+            .Property(v => v.HoraInicio)
+            .HasColumnType("time(0)");
+
+        modelBuilder.Entity<Viagem>()
+            .Property(v => v.HoraFim)
+            .HasColumnType("time(0)");
+
         // Índice único na Chave do recurso
         modelBuilder.Entity<Recurso>()
             .HasIndex(r => r.Chave)
