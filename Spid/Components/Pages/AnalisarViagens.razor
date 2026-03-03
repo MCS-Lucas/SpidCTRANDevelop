@@ -106,8 +106,9 @@ else
             <thead class="table-dark">
                 <tr>
                     <th class="text-center" role="button" @onclick="AlternarOrdemData" style="cursor:pointer;">
-                        Data @(ordenarDataAsc ? "▲" : "▼")
+                        Início da Viagem @(ordenarDataAsc ? "▲" : "▼")
                     </th>
+                    <th class="text-center">Fim da Viagem</th>
                     <th class="text-center">Colaborador</th>
                     <th class="text-center">Origem</th>
                     <th class="text-center">Destino</th>
@@ -121,7 +122,14 @@ else
                 @foreach (var v in viagensPaginadas)
                 {
                     <tr>
-                        <td class="text-center">@v.DataViagem.ToString("dd/MM/yyyy")</td>
+                        <td class="text-center">
+                            @v.DataViagem.ToString("dd/MM/yyyy")<br />
+                            @v.HoraInicio.ToString("HH:mm")
+                        </td>
+                        <td class="text-center">
+                            @CalcDataFim(v).ToString("dd/MM/yyyy")<br />
+                            @v.HoraFim.ToString("HH:mm")
+                        </td>
                         <td class="text-center">@v.Colaborador.Nome</td>
                         <td class="text-center">@v.Origem</td>
                         <td class="text-center">@v.Destino</td>
@@ -375,6 +383,15 @@ else
     {
         ordenarDataAsc = !ordenarDataAsc;
         Filtrar();
+    }
+
+    /// Calcula a data de término da viagem.
+    /// Se HoraFim < HoraInicio, a viagem cruzou a meia-noite e terminou no dia seguinte.
+    private static DateOnly CalcDataFim(Viagem v)
+    {
+        return v.HoraFim < v.HoraInicio
+            ? v.DataViagem.AddDays(1)
+            : v.DataViagem;
     }
 
     private void IrParaPagina(int pagina)
