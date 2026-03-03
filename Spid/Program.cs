@@ -13,13 +13,14 @@ if (builder.Environment.IsEnvironment("Docker"))
     StaticWebAssetsLoader.UseStaticWebAssets(builder.Environment, builder.Configuration);
 }
 
-// DbContext com SQL Server
+// DbContext com SQL Server (instância scoped — usada por navmenu, analisar-viagens, etc.)
 builder.Services.AddDbContext<AppDbContext>(options =>
     options.UseSqlServer(builder.Configuration.GetConnectionString("DefaultConnection")));
 
-// DbContext com SQL Server
-builder.Services.AddDbContext<AppDbContext>(options =>
-    options.UseSqlServer(builder.Configuration.GetConnectionString("DefaultConnection")));
+// Factory — usada pelo Dashboard para criar contextos curtos e isolados, evitando concorrência
+builder.Services.AddDbContextFactory<AppDbContext>(options =>
+    options.UseSqlServer(builder.Configuration.GetConnectionString("DefaultConnection")),
+    ServiceLifetime.Scoped);
 
 // Add services to the container.
 builder.Services.AddRazorComponents()
