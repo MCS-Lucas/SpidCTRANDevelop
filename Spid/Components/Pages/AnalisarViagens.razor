@@ -115,7 +115,7 @@ else
                     <th class="text-center">Parceiro</th>
                     <th class="text-center">Valor Final</th>
                     <th class="text-center">Status</th>
-                    <th class="text-center">Ações</th>
+                    <th class="text-center">Ateste da viagem</th>
                 </tr>
             </thead>
             <tbody>
@@ -142,7 +142,7 @@ else
                                     <span class="badge bg-warning text-dark">⏳ Pendente</span>
                                     break;
                                 case "OK":
-                                    <span class="badge bg-success">✅ OK</span>
+                                    <span class="badge bg-success">✅ Atestada</span>
                                     break;
                                 case "Contestada":
                                     <span class="badge bg-danger">❌ Contestada</span>
@@ -153,7 +153,7 @@ else
                             @if (v.StatusConferenciaGestor == "Pendente")
                             {
                                 <button class="btn btn-sm btn-success me-1" @onclick="() => Aprovar(v)">
-                                    ✅ OK
+                                    ✅ Atestar
                                 </button>
                                 <button class="btn btn-sm btn-danger" @onclick="() => AbrirContestacao(v)">
                                     ❌ Contestar
