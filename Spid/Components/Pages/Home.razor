@@ -1,7 +1,383 @@
 ﻿@page "/"
+@using Microsoft.EntityFrameworkCore
+@using Spid.Data
+@inject IDbContextFactory<AppDbContext> DbFactory
+@inject UserSession UserSession
+@inject NavigationManager Nav
+@inject IJSRuntime JS
+@implements IAsyncDisposable
 
-<PageTitle>Home</PageTitle>
+<PageTitle>Dashboard — SPID</PageTitle>
 
-<h1>Hello, world!</h1>
+<style>
+    .dash-title {
+        font-size: 1.5rem;
+        font-weight: 700;
+        color: #1a2340;
+    }
 
-Welcome to your new app.
+    .kpi-card {
+        border-radius: 12px;
+        border: none;
+        box-shadow: 0 2px 10px rgba(0, 0, 0, 0.08);
+        transition: box-shadow .2s;
+    }
+
+    .kpi-card:hover {
+        box-shadow: 0 4px 18px rgba(0, 0, 0, 0.14);
+    }
+
+    .kpi-icon {
+        width: 48px;
+        height: 48px;
+        border-radius: 12px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 1.4rem;
+    }
+
+    .kpi-value {
+        font-size: 1.65rem;
+        font-weight: 700;
+        line-height: 1.2;
+        color: #1a2340;
+    }
+
+    .kpi-label {
+        font-size: 0.75rem;
+        color: #6c757d;
+        text-transform: uppercase;
+        letter-spacing: .04em;
+    }
+
+    .operator-badge {
+        width: 44px;
+        height: 44px;
+        border-radius: 50%;
+        background: #f0f4ff;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-weight: 700;
+        font-size: .9rem;
+        color: #1a73e8;
+        flex-shrink: 0;
+    }
+
+    .chart-card {
+        border-radius: 12px;
+        border: none;
+        box-shadow: 0 2px 10px rgba(0, 0, 0, 0.08);
+    }
+
+    .chart-wrapper {
+        position: relative;
+        height: 300px;
+    }
+
+    .filter-select {
+        border-radius: 8px;
+        border: 1px solid #dee2e6;
+        padding: 6px 32px 6px 12px;
+        font-size: .875rem;
+        background-color: #fff;
+        cursor: pointer;
+    }
+
+    .filter-select:focus {
+        outline: none;
+        border-color: #1a73e8;
+        box-shadow: 0 0 0 3px rgba(26, 115, 232, .15);
+    }
+
+    .setor-select {
+        border-radius: 8px;
+        border: 1px solid #1a73e8;
+        padding: 6px 32px 6px 12px;
+        font-size: .875rem;
+        background-color: #f0f4ff;
+        color: #1a73e8;
+        font-weight: 600;
+        cursor: pointer;
+    }
+</style>
+
+@if (!UserSession.IsAuthenticated)
+{
+    <p class="text-muted">Redirecionando...</p>
+}
+else if (carregando)
+{
+    <div class="d-flex align-items-center gap-2 mt-4">
+        <div class="spinner-border spinner-border-sm text-primary"></div>
+        <span class="text-muted">Carregando dashboard...</span>
+    </div>
+}
+else
+{
+    <!-- Cabeçalho com filtros -->
+    <div class="d-flex flex-wrap align-items-center justify-content-between gap-3 mb-4">
+        <span class="dash-title">📊 Visão Geral</span>
+
+        <div class="d-flex align-items-center gap-2 flex-wrap">
+            @if (isAdmin && setores.Count > 0)
+            {
+                <select class="setor-select" @bind="setorSelecionadoId" @bind:after="CarregarDados">
+                    @foreach (var s in setores)
+                    {
+                        <option value="@s.Id">@s.Nome</option>
+                    }
+                </select>
+            }
+
+            <select class="filter-select" @bind="mesSelecionado" @bind:after="CarregarDados">
+                @for (int m = 1; m <= 12; m++)
+                {
+                    var mes = m;
+                    <option value="@mes">
+                        @System.Globalization.CultureInfo.GetCultureInfo("pt-BR").DateTimeFormat.GetMonthName(mes)</option>
+                    }
+                </select>
+
+                <select class="filter-select" @bind="anoSelecionado" @bind:after="CarregarDados">
+                    @for (int a = DateTime.Now.Year; a >= DateTime.Now.Year - 3; a--)
+                    {
+                        <option value="@a">@a</option>
+                    }
+                </select>
+            </div>
+        </div>
+
+        <!-- KPI Cards -->
+        <div class="row g-3 mb-4">
+            <div class="col-sm-6 col-lg-4">
+                <div class="card kpi-card p-3 h-100">
+                    <div class="d-flex align-items-center gap-3">
+                        <div class="kpi-icon" style="background:#e8f0fe;">🚗</div>
+                        <div>
+                            <div class="kpi-value">@totalCorridas</div>
+                            <div class="kpi-label">Corridas realizadas</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="col-sm-6 col-lg-4">
+                <div class="card kpi-card p-3 h-100">
+                    <div class="d-flex align-items-center gap-3">
+                        <div class="kpi-icon" style="background:#e6f4ea;">💰</div>
+                        <div>
+                            <div class="kpi-value" style="color:#1e7e34;">R$ @custoTotal.ToString("N2")</div>
+                            <div class="kpi-label">Custo total</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="col-sm-6 col-lg-4">
+                <div class="card kpi-card p-3 h-100">
+                    <div class="d-flex align-items-center gap-3">
+                        <div class="kpi-icon" style="background:#fff3e0;">📈</div>
+                        <div>
+                            <div class="kpi-value" style="color:#e65100;">R$ @ticketMedio.ToString("N2")</div>
+                            <div class="kpi-label">Ticket médio</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Operadores + Gráfico -->
+        <div class="row g-3">
+            <!-- Operadores mais utilizados -->
+            <div class="col-md-4">
+                <div class="card chart-card p-3 h-100">
+                    <div class="fw-semibold mb-3" style="color:#1a2340;">Operadores mais utilizados</div>
+                    @if (topOperadores.Count == 0)
+                    {
+                        <p class="text-muted small">Nenhum dado para o período.</p>
+                    }
+                    else
+                    {
+                        <div class="d-flex flex-column gap-3">
+                            @for (int i = 0; i < topOperadores.Count; i++)
+                            {
+                                var op = topOperadores[i];
+                                var rank = i + 1;
+                                var pct = totalCorridas > 0 ? (double)op.Corridas / totalCorridas * 100 : 0;
+                                <div>
+                                    <div class="d-flex align-items-center gap-2 mb-1">
+                                        <span class="text-muted" style="font-size:.75rem;width:16px;">@rank&ordm;</span>
+                                        <div class="operator-badge">@(op.Nome.Length >= 2 ? op.Nome[..2].ToUpper() : op.Nome.ToUpper())
+                                        </div>
+                                        <div class="flex-grow-1">
+                                            <div class="fw-semibold" style="font-size:.875rem;">@op.Nome</div>
+                                            <div class="text-muted" style="font-size:.75rem;">@op.Corridas corrida(s)</div>
+                                        </div>
+                                    </div>
+                                    <div class="progress" style="height:5px;">
+                                        <div class="progress-bar" style="width:@pct.ToString("F0")%;background:#1a73e8;"></div>
+                                    </div>
+                                </div>
+                            }
+                        </div>
+                    }
+                </div>
+            </div>
+
+            <!-- Gráfico de corridas diárias -->
+            <div class="col-md-8">
+                <div class="card chart-card p-3 h-100">
+                    <div class="fw-semibold mb-3" style="color:#1a2340;">Viagens diárias por empresa</div>
+                    @if (totalCorridas == 0)
+                    {
+                        <p class="text-muted small">Nenhum dado para o período.</p>
+                    }
+                    else
+                    {
+                        <div class="chart-wrapper">
+                            <canvas id="dashChart"></canvas>
+                        </div>
+                    }
+                </div>
+            </div>
+        </div>
+    }
+
+@code {
+    // ── Estado ──────────────────────────────────────────────
+    private bool carregando = true;
+    private bool isAdmin;
+    private int? setorSelecionadoId;
+
+    private int mesSelecionado = DateTime.Now.Month;
+    private int anoSelecionado = DateTime.Now.Year;
+
+    private List<Setor> setores = new();
+
+    // KPIs
+    private int totalCorridas;
+    private decimal custoTotal;
+    private decimal ticketMedio;
+
+    // Top operadores
+    private List<OperadorItem> topOperadores = new();
+
+    // Dados do gráfico — calculados junto com os KPIs, sem segunda query
+    private string[] labelsGrafico = Array.Empty<string>();
+    private List<DadosParceiro> datasetsGrafico = new();
+
+    // Flag: sinaliza que o gráfico precisa ser re-renderizado no próximo AfterRender
+    private bool chartPendente;
+
+    record OperadorItem(string Nome, int Corridas);
+    record DadosParceiro(string Label, int[] Data);
+
+    // ── Lifecycle ────────────────────────────────────────────
+    protected override async Task OnInitializedAsync()
+    {
+        if (!UserSession.IsAuthenticated)
+        {
+            Nav.NavigateTo("/login");
+            return;
+        }
+
+        var perfil = UserSession.UsuarioLogado!.Perfil;
+        isAdmin = perfil == "Admin";
+
+        if (isAdmin)
+        {
+            // Contexto próprio — isolado do DbContext scoped do circuito
+            await using var db = DbFactory.CreateDbContext();
+            setores = await db.Setores.OrderBy(s => s.Nome).ToListAsync();
+            setorSelecionadoId = setores.FirstOrDefault()?.Id;
+        }
+        else
+        {
+            setorSelecionadoId = UserSession.UsuarioLogado.SetorId;
+        }
+
+        await CarregarDados();
+    }
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        // Só renderiza o gráfico JS quando o canvas já está no DOM e há dados pendentes
+        if (chartPendente && totalCorridas > 0)
+        {
+            chartPendente = false;
+            await RenderizarGrafico();
+        }
+    }
+
+    public async ValueTask DisposeAsync()
+    {
+        try { await JS.InvokeVoidAsync("destroyDashboardChart", "dashChart"); } catch { }
+    }
+
+    // ── Carga de dados ───────────────────────────────────────
+    private async Task CarregarDados()
+    {
+        carregando = true;
+        chartPendente = false;
+
+        var mesInicio = new DateOnly(anoSelecionado, mesSelecionado, 1);
+        var mesFim = mesInicio.AddMonths(1);
+        int diasNoMes = DateTime.DaysInMonth(anoSelecionado, mesSelecionado);
+
+        // Contexto próprio e de curta duração — sem conflito com NavMenu ou outros componentes
+        await using var db = DbFactory.CreateDbContext();
+
+        var query = db.Viagens
+            .Include(v => v.Parceiro)
+            .Where(v => v.DataViagem >= mesInicio && v.DataViagem < mesFim);
+
+        if (setorSelecionadoId.HasValue)
+            query = query.Where(v => v.SetorId == setorSelecionadoId.Value);
+
+        var viagens = await query.ToListAsync();
+
+        // KPIs
+        totalCorridas = viagens.Count;
+        custoTotal = viagens.Sum(v => v.ValorFinal);
+        ticketMedio = totalCorridas > 0 ? custoTotal / totalCorridas : 0;
+
+        // Top operadores
+        topOperadores = viagens
+            .GroupBy(v => v.Parceiro.Nome)
+            .Select(g => new OperadorItem(g.Key, g.Count()))
+            .OrderByDescending(x => x.Corridas)
+            .Take(5)
+            .ToList();
+
+        // Dados para o gráfico (calculados em memória)
+        labelsGrafico = Enumerable.Range(1, diasNoMes).Select(d => d.ToString()).ToArray();
+
+        var operadores = viagens.Select(v => v.Parceiro.Nome).Distinct().OrderBy(x => x).ToList();
+        datasetsGrafico = operadores.Select(op =>
+        {
+            var porDia = viagens
+                .Where(v => v.Parceiro.Nome == op)
+                .GroupBy(v => v.DataViagem.Day)
+                .ToDictionary(g => g.Key, g => g.Count());
+
+            var data = Enumerable.Range(1, diasNoMes)
+                .Select(d => porDia.TryGetValue(d, out var cnt) ? cnt : 0)
+                .ToArray();
+
+            return new DadosParceiro(op, data);
+        }).ToList();
+
+        carregando = false;
+        chartPendente = totalCorridas > 0;
+    }
+
+    // ── Gráfico — só interop JS, sem acesso ao banco ─────────
+    private async Task RenderizarGrafico()
+    {
+        var datasets = datasetsGrafico
+            .Select(d => new { label = d.Label, data = d.Data })
+            .ToList();
+
+        await JS.InvokeVoidAsync("renderDashboardChart", "dashChart", labelsGrafico, datasets);
+    }
+}

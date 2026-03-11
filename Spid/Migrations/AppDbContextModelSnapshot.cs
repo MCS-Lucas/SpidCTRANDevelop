@@ -245,10 +245,12 @@ namespace Spid.Migrations
                         .HasColumnType("float");
 
                     b.Property<TimeOnly>("HoraFim")
-                        .HasColumnType("time");
+
+                        .HasColumnType("time(0)");
 
                     b.Property<TimeOnly>("HoraInicio")
-                        .HasColumnType("time");
+                        .HasColumnType("time(0)");
+
 
                     b.Property<string>("IdViagemParceiro")
                         .IsRequired()
@@ -280,9 +282,13 @@ namespace Spid.Migrations
                         .HasColumnType("nvarchar(max)");
 
                     b.Property<decimal>("ValorCotado")
+
+                        .HasPrecision(18, 2)
                         .HasColumnType("decimal(18,2)");
 
                     b.Property<decimal>("ValorFinal")
+                        .HasPrecision(18, 2)
+
                         .HasColumnType("decimal(18,2)");
 
                     b.HasKey("Id");
@@ -315,13 +321,13 @@ namespace Spid.Migrations
                     b.HasOne("Spid.Data.Setor", "Setor")
                         .WithMany()
                         .HasForeignKey("SetorId")
-                        .OnDelete(DeleteBehavior.Cascade)
+                        .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired();
 
                     b.HasOne("Spid.Data.Usuario", "Usuario")
                         .WithMany()
                         .HasForeignKey("UsuarioId")
-                        .OnDelete(DeleteBehavior.Cascade)
+                        .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired();
 
                     b.Navigation("Setor");
@@ -367,7 +373,7 @@ namespace Spid.Migrations
                     b.HasOne("Spid.Data.Setor", "Setor")
                         .WithMany("Viagens")
                         .HasForeignKey("SetorId")
-                        .OnDelete(DeleteBehavior.Cascade)
+                        .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired();
 
                     b.Navigation("Colaborador");

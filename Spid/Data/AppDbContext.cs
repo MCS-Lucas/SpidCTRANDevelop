@@ -36,6 +36,46 @@ public class AppDbContext : DbContext
             .HasIndex(v => v.IdViagemParceiro)
             .IsUnique();
 
+        // SQL Server não permite múltiplos caminhos de cascade delete.
+        // Caminho 1: Setores → Colaboradores (CASCADE) → Viagens (CASCADE)
+        // Caminho 2: Setores → Viagens (direto - deve ser RESTRICT)
+        modelBuilder.Entity<Viagem>()
+            .HasOne(v => v.Setor)
+            .WithMany(s => s.Viagens)
+            .HasForeignKey(v => v.SetorId)
+            .OnDelete(DeleteBehavior.Restrict);
+
+        // Idem: ConferenciaMensal referencia Setor e Usuario (que também referencia Setor)
+        modelBuilder.Entity<ConferenciaMensal>()
+            .HasOne(c => c.Setor)
+            .WithMany()
+            .HasForeignKey(c => c.SetorId)
+            .OnDelete(DeleteBehavior.Restrict);
+
+        modelBuilder.Entity<ConferenciaMensal>()
+            .HasOne(c => c.Usuario)
+            .WithMany()
+            .HasForeignKey(c => c.UsuarioId)
+            .OnDelete(DeleteBehavior.Restrict);
+
+        // Precisão explícita para campos monetários (evita truncamento no SQL Server)
+        modelBuilder.Entity<Viagem>()
+            .Property(v => v.ValorCotado)
+            .HasPrecision(18, 2);
+
+        modelBuilder.Entity<Viagem>()
+            .Property(v => v.ValorFinal)
+            .HasPrecision(18, 2);
+
+        // Precisão time(0) para horários — armazena apenas HH:MM:SS, sem frações
+        modelBuilder.Entity<Viagem>()
+            .Property(v => v.HoraInicio)
+            .HasColumnType("time(0)");
+
+        modelBuilder.Entity<Viagem>()
+            .Property(v => v.HoraFim)
+            .HasColumnType("time(0)");
+
         // Índice único na Chave do recurso
         modelBuilder.Entity<Recurso>()
             .HasIndex(r => r.Chave)
