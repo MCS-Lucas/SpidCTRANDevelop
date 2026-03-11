@@ -12,7 +12,10 @@
 
 <div class="login-container">
     <div class="login-card">
-        <h2 class="text-center mb-4">🔐 SPID</h2>
+        <div class="text-center mb-3">
+            <img src="spid_web.png" alt="SPID Logo" style="max-width: 180px; width: 100%;" />
+        </div>
+        <h2 class="text-center mb-2">SPID</h2>
         <p class="text-center text-muted mb-4">Sistema de Gestão de Viagens</p>
 
         @if (!string.IsNullOrEmpty(erro))
@@ -33,7 +36,7 @@
                 <InputText id="senha" @bind-Value="senha" type="password" class="form-control"
                            placeholder="Digite sua senha" />
             </div>
-
+            <br ><br/>
             <button type="submit" class="btn btn-primary w-100" disabled="@carregando">
                 @if (carregando)
                 {
@@ -41,6 +44,11 @@
                 }
                 Entrar
             </button>
+
+            <br><br/>
+
+            <a href="" class="text-center mb-2 d-block">Alterar Senha</a>
+            
         </EditForm>
     </div>
 </div>
@@ -90,6 +98,20 @@
             return;
         }
 
+        // Verifica se é primeiro acesso (ContadorAcessos == 0)
+        if (usuario.ContadorAcessos == 0)
+        {
+            Nav.NavigateTo("/primeiro-acesso");
+            return;
+        }
+
         Nav.NavigateTo("/");
+    }
+
+    private async Task FazerPrimeiroAcesso()
+    {
+
+        // Lógica para primeiro acesso (ex: redirecionar para uma página de cadastro ou recuperação de senha)
+        Nav.NavigateTo("/primeiro-acesso");
     }
 }

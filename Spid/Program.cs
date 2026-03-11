@@ -1,15 +1,26 @@
+using Microsoft.AspNetCore.Hosting.StaticWebAssets;
 using Microsoft.EntityFrameworkCore;
 using Spid.Components;
 using Spid.Data; // aqui vai ficar o AppDbContext
 using Spid.Services;
 
 
-
 var builder = WebApplication.CreateBuilder(args);
 
-// DbContext com SQLite
+// ✅ Habilita Static Web Assets também no ambiente "Docker" (dev)
+if (builder.Environment.IsEnvironment("Docker"))
+{
+    StaticWebAssetsLoader.UseStaticWebAssets(builder.Environment, builder.Configuration);
+}
+
+// DbContext com SQL Server (instância scoped — usada por navmenu, analisar-viagens, etc.)
 builder.Services.AddDbContext<AppDbContext>(options =>
-    options.UseSqlite(builder.Configuration.GetConnectionString("DefaultConnection")));
+    options.UseSqlServer(builder.Configuration.GetConnectionString("DefaultConnection")));
+
+// Factory — usada pelo Dashboard para criar contextos curtos e isolados, evitando concorrência
+builder.Services.AddDbContextFactory<AppDbContext>(options =>
+    options.UseSqlServer(builder.Configuration.GetConnectionString("DefaultConnection")),
+    ServiceLifetime.Scoped);
 
 // Add services to the container.
 builder.Services.AddRazorComponents()
@@ -25,33 +36,6 @@ using (var scope = app.Services.CreateScope())
 {
     var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
     db.Database.Migrate();
-
-    // Seed de usuários
-    if (!db.Usuarios.Any())
-    {
-        var admin = new Usuario
-        {
-            Nome = "Admin Teste",
-            Email = "admin@spid.com",
-            Ponto = "0001",
-            Perfil = "Admin",
-            Ativo = true
-        };
-        admin.SenhaHash = UserSession.HashSenha(admin, "admin123");
-
-        var gestor = new Usuario
-        {
-            Nome = "Gestor Teste",
-            Email = "gestor@spid.com",
-            Ponto = "6845",
-            Perfil = "Gestor Principal",
-            Ativo = true
-        };
-        gestor.SenhaHash = UserSession.HashSenha(gestor, "gestor123");
-
-        db.Usuarios.AddRange(admin, gestor);
-        db.SaveChanges();
-    }
 
     // Seed de recursos e permissões
     if (!db.Recursos.Any())
