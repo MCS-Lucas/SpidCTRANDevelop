@@ -4,7 +4,7 @@ public class PerfilRecurso
 {
     public int Id { get; set; }
 
-    // Perfil: "Admin", "Gestor Principal" ou "Gestor Secundário", "Colaboradores"
+    // Perfil: "Admin", "Gestor Principal" ou "Gestor Secundário"
     public string Perfil { get; set; } = null!;
 
     public int RecursoId { get; set; }
