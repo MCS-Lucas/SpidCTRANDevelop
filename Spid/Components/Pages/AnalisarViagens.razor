@@ -386,7 +386,7 @@ else
     }
 
     /// Calcula a data de término da viagem.
-    /// Se HoraFim < HoraInicio, a viagem cruzou a meia-noite e terminou no dia seguinte.
+    /// Se HoraFim HoraInicio, a viagem cruzou a meia-noite e terminou no= dia seguinte
     private static DateOnly CalcDataFim(Viagem v)
     {
         return v.HoraFim < v.HoraInicio
