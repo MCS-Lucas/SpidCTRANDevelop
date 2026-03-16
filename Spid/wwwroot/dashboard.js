@@ -2,7 +2,7 @@
 
 const _charts = {};
 
-window.renderDashboardChart = function (canvasId, labels, datasets) {
+window.renderDashboardChart = function (canvasId, labels, datasets, mesSelecionado) {
     // Destroy previous instance if it exists
     if (_charts[canvasId]) {
         _charts[canvasId].destroy();
@@ -31,6 +31,9 @@ window.renderDashboardChart = function (canvasId, labels, datasets) {
         fill: false
     }));
 
+    // Formata o mês para duas casas
+    const padMonth = mesSelecionado ? String(mesSelecionado).padStart(2, '0') : '';
+
     _charts[canvasId] = new Chart(ctx, {
         type: 'line',
         data: { labels, datasets: styledDatasets },
@@ -43,12 +46,35 @@ window.renderDashboardChart = function (canvasId, labels, datasets) {
                     position: 'bottom',
                     labels: { usePointStyle: true, boxWidth: 8 }
                 },
-                tooltip: { mode: 'index', intersect: false }
+                tooltip: { 
+                    mode: 'index', 
+                    intersect: false,
+                    callbacks: {
+                        title: function(context) {
+                            if (!context || !context.length) return '';
+                            const day = String(context[0].label).padStart(2, '0');
+                            return padMonth ? `${day}/${padMonth}` : day;
+                        }
+                    }
+                }
             },
             scales: {
                 x: {
                     title: { display: true, text: 'Dia', font: { size: 11 } },
-                    grid: { color: '#f0f0f0' }
+                    grid: { color: '#f0f0f0' },
+                    ticks: {
+                        autoSkip: false,
+                        maxRotation: 0,
+                        callback: function(value, index, ticks) {
+                            const label = this.getLabelForValue(value);
+                            const day = parseInt(label, 10);
+                            const lastDay = ticks.length;
+                            if (day % 5 === 0 || index === lastDay - 1) {
+                                return label;
+                            }
+                            return null;
+                        }
+                    }
                 },
                 y: {
                     title: { display: true, text: 'Nº de Viagens', font: { size: 11 } },
