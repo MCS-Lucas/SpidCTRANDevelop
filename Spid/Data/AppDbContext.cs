@@ -14,6 +14,7 @@ public class AppDbContext : DbContext
     public DbSet<Recurso> Recursos => Set<Recurso>();
     public DbSet<PerfilRecurso> PerfisRecurso => Set<PerfilRecurso>();
     public DbSet<ConferenciaMensal> ConferenciasMensais => Set<ConferenciaMensal>();
+    public DbSet<PasswordResetToken> PasswordResetTokens => Set<PasswordResetToken>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -90,5 +91,15 @@ public class AppDbContext : DbContext
         modelBuilder.Entity<ConferenciaMensal>()
             .HasIndex(c => new { c.SetorId, c.Ano, c.Mes })
             .IsUnique();
+
+        modelBuilder.Entity<PasswordResetToken>()
+            .HasIndex(t => t.TokenHash)
+            .IsUnique();
+
+        modelBuilder.Entity<PasswordResetToken>()
+            .HasOne(t => t.Usuario)
+            .WithMany()
+            .HasForeignKey(t => t.UsuarioId)
+            .OnDelete(DeleteBehavior.Cascade);
     }
 }

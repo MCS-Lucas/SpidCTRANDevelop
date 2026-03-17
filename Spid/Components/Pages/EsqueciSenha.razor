@@ -1,0 +1,103 @@
+@page "/alterar-senha"
+@layout LoginLayout
+@using Microsoft.EntityFrameworkCore
+@using Spid.Data
+@using Spid.Services
+@inject AppDbContext Db
+@inject PasswordResetService PasswordResetService
+@inject EmailService EmailService
+@inject NavigationManager Nav
+
+<PageTitle>Alterar Senha — SPID</PageTitle>
+
+<div class="login-container">
+    <div class="login-card">
+        <div class="text-center mb-3">
+            <img src="spid_web.png" alt="SPID Logo" style="max-width: 180px; width: 100%;" />
+        </div>
+        <h2 class="text-center mb-2">Recuperação de senha</h2>
+        <p class="text-center text-muted mb-4">Informe seu ponto para receber o link de alteração de senha</p>
+
+        @if (!string.IsNullOrWhiteSpace(erro))
+        {
+            <div class="alert alert-danger" role="alert">@erro</div>
+        }
+
+        @if (!string.IsNullOrWhiteSpace(sucesso))
+        {
+            <div class="alert alert-success" role="alert">@sucesso</div>
+        }
+
+        <EditForm Model="this" OnValidSubmit="EnviarLinkAsync">
+            <div class="mb-3">
+                <label for="ponto" class="form-label">Ponto</label>
+                <InputText id="ponto" @bind-Value="ponto" class="form-control" placeholder="Ex: 0001" />
+            </div>
+
+            <button type="submit" class="btn btn-primary w-100" disabled="@enviando">
+                @if (enviando)
+                {
+                    <span class="spinner-border spinner-border-sm me-2" role="status"></span>
+                }
+                Enviar link de recuperação
+            </button>
+
+            <a href="/login" class="text-center mt-3 d-block link-aux">Voltar ao login</a>
+        </EditForm>
+    </div>
+</div>
+
+@code {
+    private string ponto = string.Empty;
+    private string? erro;
+    private string? sucesso;
+    private bool enviando;
+
+    private async Task EnviarLinkAsync()
+    {
+        erro = null;
+        sucesso = null;
+        enviando = true;
+
+        try
+        {
+            if (string.IsNullOrWhiteSpace(ponto))
+            {
+                erro = "Informe o ponto do usuário.";
+                return;
+            }
+
+            var usuario = await Db.Usuarios
+                .AsNoTracking()
+                .FirstOrDefaultAsync(u => u.Ponto == ponto && u.Ativo);
+
+            if (usuario is null)
+            {
+                erro = "O ponto informado não foi encontrado ou o usuário está inativo.";
+                return;
+            }
+
+            if (string.IsNullOrWhiteSpace(usuario.Email))
+            {
+                erro = "O usuário informado não possui e-mail cadastrado para recuperação.";
+                return;
+            }
+
+            var token = await PasswordResetService.CriarTokenAsync(usuario);
+            var link = $"{Nav.BaseUri.TrimEnd('/')}/redefinir-senha?token={Uri.EscapeDataString(token)}";
+
+            await EmailService.EnviarRecuperacaoSenhaAsync(usuario.Email, usuario.Nome, link);
+
+            sucesso = "Enviamos o link de recuperação para o e-mail cadastrado do usuário.";
+            ponto = string.Empty;
+        }
+        catch (Exception ex)
+        {
+            erro = $"Não foi possível enviar o e-mail de recuperação: {ex.Message}";
+        }
+        finally
+        {
+            enviando = false;
+        }
+    }
+}

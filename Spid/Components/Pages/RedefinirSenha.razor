@@ -1,0 +1,156 @@
+@page "/redefinir-senha"
+@layout LoginLayout
+@using Spid.Data
+@using Spid.Services
+@inject PasswordResetService PasswordResetService
+@inject NavigationManager Nav
+
+<PageTitle>Redefinir Senha — SPID</PageTitle>
+
+<div class="login-container">
+    <div class="login-card">
+        <div class="text-center mb-3">
+            <img src="spid_web.png" alt="SPID Logo" style="max-width: 180px; width: 100%;" />
+        </div>
+        <h2 class="text-center mb-2">Redefinir senha</h2>
+        <p class="text-center text-muted mb-4">Defina sua nova senha para acessar o sistema</p>
+
+        @if (!string.IsNullOrWhiteSpace(erro))
+        {
+            <div class="alert alert-danger" role="alert">@erro</div>
+        }
+
+        @if (!string.IsNullOrWhiteSpace(sucesso))
+        {
+            <div class="alert alert-success" role="alert">@sucesso</div>
+        }
+
+        @if (tokenValido && usuario is not null)
+        {
+            <EditForm Model="this" OnValidSubmit="SalvarAsync">
+                <div class="mb-3">
+                    <label class="form-label">Usuário</label>
+                    <input type="text" class="form-control" value="@usuario.Nome" disabled />
+                </div>
+
+                <div class="mb-3">
+                    <label class="form-label">Ponto</label>
+                    <input type="text" class="form-control" value="@usuario.Ponto" disabled />
+                </div>
+
+                <div class="mb-3">
+                    <label class="form-label">Nova senha</label>
+                    <InputText @bind-Value="novaSenha" type="password" class="form-control" placeholder="Digite sua nova senha" />
+                </div>
+
+                <div class="mb-3">
+                    <label class="form-label">Confirmar senha</label>
+                    <InputText @bind-Value="confirmarSenha" type="password" class="form-control" placeholder="Confirme sua nova senha" />
+                </div>
+
+                <button type="submit" class="btn btn-primary w-100" disabled="@salvando">
+                    @if (salvando)
+                    {
+                        <span class="spinner-border spinner-border-sm me-2" role="status"></span>
+                    }
+                    Alterar senha
+                </button>
+            </EditForm>
+        }
+        else
+        {
+            <a href="/login" class="text-center mt-3 d-block link-aux">Voltar ao login</a>
+        }
+    </div>
+</div>
+
+@code {
+    [SupplyParameterFromQuery(Name = "token")]
+    public string? Token { get; set; }
+
+    private Usuario? usuario;
+    private string novaSenha = string.Empty;
+    private string confirmarSenha = string.Empty;
+    private string? erro;
+    private string? sucesso;
+    private bool salvando;
+    private bool tokenValido;
+
+    protected override async Task OnParametersSetAsync()
+    {
+        erro = null;
+        sucesso = null;
+        tokenValido = false;
+        usuario = null;
+
+        if (string.IsNullOrWhiteSpace(Token))
+        {
+            erro = "O link de recuperação é inválido.";
+            return;
+        }
+
+        usuario = await PasswordResetService.ObterUsuarioPorTokenValidoAsync(Token);
+        if (usuario is null)
+        {
+            erro = "Este link é inválido, já foi utilizado ou expirou.";
+            return;
+        }
+
+        tokenValido = true;
+    }
+
+    private async Task SalvarAsync()
+    {
+        erro = null;
+        sucesso = null;
+        salvando = true;
+
+        try
+        {
+            if (!tokenValido || string.IsNullOrWhiteSpace(Token))
+            {
+                erro = "O link de recuperação não é mais válido.";
+                return;
+            }
+
+            if (string.IsNullOrWhiteSpace(novaSenha))
+            {
+                erro = "A nova senha é obrigatória.";
+                return;
+            }
+
+            if (novaSenha.Length < 4)
+            {
+                erro = "A senha deve ter no mínimo 4 caracteres.";
+                return;
+            }
+
+            if (novaSenha != confirmarSenha)
+            {
+                erro = "As senhas não conferem.";
+                return;
+            }
+
+            var redefinido = await PasswordResetService.RedefinirSenhaAsync(Token, novaSenha);
+            if (!redefinido)
+            {
+                tokenValido = false;
+                erro = "Não foi possível redefinir a senha. O link pode ter expirado ou já ter sido utilizado.";
+                return;
+            }
+
+            sucesso = "Senha alterada com sucesso. Você será redirecionado para o login.";
+            tokenValido = false;
+            await Task.Delay(1500);
+            Nav.NavigateTo("/login");
+        }
+        catch (Exception ex)
+        {
+            erro = $"Erro ao alterar a senha: {ex.Message}";
+        }
+        finally
+        {
+            salvando = false;
+        }
+    }
+}

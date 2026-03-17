@@ -1,10 +1,10 @@
 @page "/login"
 @layout LoginLayout
 @using Microsoft.EntityFrameworkCore
+@using Microsoft.AspNetCore.Components.Forms
 @using Microsoft.AspNetCore.Components.Web
 @using Spid.Data
-@inject IDbContextFactory<AppDbContext> DbFactory
-@inject IHttpContextAccessor HttpContextAccessor
+@inject AppDbContext Db
 @inject UserSession UserSession
 @inject NavigationManager Nav
 
@@ -18,79 +18,100 @@
         <h2 class="text-center mb-2">SPID</h2>
         <p class="text-center text-muted mb-4">Sistema de Gestão de Viagens</p>
 
-        @if (!string.IsNullOrEmpty(erroMensagem))
+        @if (!string.IsNullOrEmpty(erro))
         {
             <div class="alert alert-danger" role="alert">
-                @erroMensagem
+                @erro
             </div>
         }
 
-        @*
-            IMPORTANTE: Este form usa POST HTTP puro para /do-login.
-            NÃO usar EditForm + SignInAsync aqui — o Blazor roda via WebSocket e
-            não permite gravar cookies (cabeçalhos HTTP já foram enviados).
-        *@
-        <form method="post" action="/do-login">
+        <EditForm Model="this" OnValidSubmit="FazerLogin">
             <div class="mb-3">
                 <label for="ponto" class="form-label">Ponto</label>
-                <input id="ponto" name="ponto" type="text" class="form-control" placeholder="Ex: 0001" required />
+                <InputText id="ponto" @bind-Value="ponto" class="form-control" placeholder="Ex: 0001" />
             </div>
 
             <div class="mb-3">
                 <label for="senha" class="form-label">Senha</label>
-                <input id="senha" name="senha" type="password" class="form-control"
-                       placeholder="Digite sua senha" required />
+                <InputText id="senha" @bind-Value="senha" type="password" class="form-control"
+                           placeholder="Digite sua senha" />
             </div>
-            
-            <br /><br />
-            <button type="submit" class="btn btn-primary w-100">
+            <br ><br/>
+            <button type="submit" class="btn btn-primary w-100" disabled="@carregando">
+                @if (carregando)
+                {
+                    <span class="spinner-border spinner-border-sm me-2" role="status"></span>
+                }
                 Entrar
             </button>
 
-            <br /><br />
-            <a href="" class="text-center mb-2 d-block">Alterar Senha</a>
-        </form>
+            <br><br/>
+
+            <a href="/alterar-senha" class="text-center mb-2 d-block">Alterar Senha</a>
+            
+        </EditForm>
     </div>
 </div>
 
 @code {
-    [SupplyParameterFromQuery(Name = "erro")]
-    public string? Erro { get; set; }
+    private string ponto { get; set; } = "";
+    private string senha { get; set; } = "";
 
-    private string? erroMensagem;
+    private string? erro;
+    private bool carregando;
 
-    protected override async Task OnInitializedAsync()
+    protected override void OnInitialized()
     {
-        // Tenta restaurar a sessão do cookie
-        var httpContext = HttpContextAccessor.HttpContext;
-        if (httpContext?.User is not null && !UserSession.IsAuthenticated)
-        {
-            await using var dbCtx = await DbFactory.CreateDbContextAsync();
-            await UserSession.TryRestoreFromClaimsAsync(httpContext.User, dbCtx);
-        }
-
-        // Se já está logado, redireciona adequadamente
+        // Se já está logado, redireciona para a home
         if (UserSession.IsAuthenticated)
         {
-            if (UserSession.UsuarioLogado?.ContadorAcessos == 0)
-            {
-                Nav.NavigateTo("/primeiro-acesso");
-            }
-            else
-            {
-                Nav.NavigateTo("/");
-            }
+            Nav.NavigateTo("/");
         }
     }
 
-    protected override void OnParametersSet()
+    private async Task FazerLogin()
     {
-        erroMensagem = Erro switch
+        erro = null;
+        carregando = true;
+
+        if (string.IsNullOrWhiteSpace(ponto) || string.IsNullOrWhiteSpace(senha))
         {
-            "campos"  => "Preencha o ponto e a senha.",
-            "usuario" => "Ponto não encontrado ou usuário inativo.",
-            "senha"   => "Senha incorreta.",
-            _         => null
-        };
+            erro = "Preencha o ponto e a senha.";
+            carregando = false;
+            return;
+        }
+
+        var usuario = await Db.Usuarios
+            .FirstOrDefaultAsync(u => u.Ponto == ponto && u.Ativo);
+
+        if (usuario is null)
+        {
+            erro = "Ponto não encontrado ou usuário inativo.";
+            carregando = false;
+            return;
+        }
+
+        if (!UserSession.Login(usuario, senha))
+        {
+            erro = "Senha incorreta.";
+            carregando = false;
+            return;
+        }
+
+        // Verifica se é primeiro acesso (ContadorAcessos == 0)
+        if (usuario.ContadorAcessos == 0)
+        {
+            Nav.NavigateTo("/primeiro-acesso");
+            return;
+        }
+
+        Nav.NavigateTo("/");
+    }
+
+    private async Task FazerPrimeiroAcesso()
+    {
+
+        // Lógica para primeiro acesso (ex: redirecionar para uma página de cadastro ou recuperação de senha)
+        Nav.NavigateTo("/primeiro-acesso");
     }
 }
