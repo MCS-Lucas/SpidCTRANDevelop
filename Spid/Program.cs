@@ -26,6 +26,8 @@ builder.Services.AddDbContextFactory<AppDbContext>(options =>
 builder.Services.AddRazorComponents()
     .AddInteractiveServerComponents();
 
+builder.Services.AddHttpContextAccessor();
+
 builder.Services.Configure<EmailOptions>(builder.Configuration.GetSection("Email"));
 builder.Services.Configure<ResetSenhaOptions>(builder.Configuration.GetSection("ResetSenha"));
 
