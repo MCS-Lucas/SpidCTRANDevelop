@@ -1,3 +1,5 @@
+using Microsoft.AspNetCore.Authentication;
+using Microsoft.AspNetCore.Authentication.Cookies;
 using Microsoft.AspNetCore.Hosting.StaticWebAssets;
 using Microsoft.EntityFrameworkCore;
 using Spid.Components;
@@ -28,6 +30,25 @@ builder.Services.AddRazorComponents()
 
 builder.Services.AddScoped<UserSession>();
 builder.Services.AddScoped<ImportacaoService>();
+
+// Ativa acesso ao HttpContext durante a renderização (necessário para ler o cookie)
+builder.Services.AddHttpContextAccessor();
+
+// Configuração do Sistema de Autenticação por Cookie do ASP.NET Core
+builder.Services.AddAuthentication("SpidCookie")
+    .AddCookie("SpidCookie", options =>
+    {
+        options.Cookie.Name = "SpidAuthToken";
+        options.LoginPath = "/login";
+        options.AccessDeniedPath = "/login";
+        options.ExpireTimeSpan = TimeSpan.FromDays(7);
+        options.SlidingExpiration = true;
+        
+        // Segurança do Cookie
+        options.Cookie.HttpOnly = true;
+        options.Cookie.SecurePolicy = CookieSecurePolicy.SameAsRequest;
+        options.Cookie.SameSite = SameSiteMode.Lax;
+    });
 
 var app = builder.Build();
 
@@ -99,6 +120,9 @@ if (!app.Environment.IsDevelopment())
     app.UseHsts();
 }
 
+app.UseAuthentication();
+app.UseAuthorization();
+
 app.UseStatusCodePagesWithReExecute("/not-found", createScopeForStatusCodePages: true);
 app.UseHttpsRedirection();
 
@@ -107,5 +131,59 @@ app.UseAntiforgery();
 app.MapStaticAssets();
 app.MapRazorComponents<App>()
     .AddInteractiveServerRenderMode();
+
+// Endpoint HTTP para logout — SignOutAsync requer HttpContext real (não funciona dentro do WebSocket Blazor)
+app.MapGet("/logout-handler", async (HttpContext ctx) =>
+{
+    await ctx.SignOutAsync("SpidCookie");
+    return Results.Redirect("/login");
+});
+
+// Endpoint HTTP para login — SignInAsync (gravar cookie) também requer HttpContext real
+// O form do Login.razor faz POST aqui; se bem-sucedido emite o cookie e redireciona
+app.MapPost("/do-login", async (
+    HttpContext ctx,
+    AppDbContext db) =>
+{
+    var form = await ctx.Request.ReadFormAsync();
+    var ponto = form["ponto"].ToString().Trim();
+    var senha = form["senha"].ToString();
+
+    if (string.IsNullOrWhiteSpace(ponto) || string.IsNullOrWhiteSpace(senha))
+        return Results.Redirect("/login?erro=campos");
+
+    var usuario = await db.Usuarios
+        .FirstOrDefaultAsync(u => u.Ponto == ponto && u.Ativo);
+
+    if (usuario is null)
+        return Results.Redirect("/login?erro=usuario");
+
+    var hasher = new Microsoft.AspNetCore.Identity.PasswordHasher<Spid.Data.Usuario>();
+    var result = hasher.VerifyHashedPassword(usuario, usuario.SenhaHash, senha);
+    if (result == Microsoft.AspNetCore.Identity.PasswordVerificationResult.Failed)
+        return Results.Redirect("/login?erro=senha");
+
+    var claims = new List<System.Security.Claims.Claim>
+    {
+        new("UserId", usuario.Id.ToString()),
+        new(System.Security.Claims.ClaimTypes.Name, usuario.Nome)
+    };
+    var identity = new System.Security.Claims.ClaimsIdentity(claims, "SpidCookie");
+    var principal = new System.Security.Claims.ClaimsPrincipal(identity);
+
+    await ctx.SignInAsync("SpidCookie", principal, new Microsoft.AspNetCore.Authentication.AuthenticationProperties
+    {
+        IsPersistent = true,
+        ExpiresUtc = DateTimeOffset.UtcNow.AddDays(7)
+    });
+
+    // Se for o primeiro acesso, redireciona para a tela de recuperar/redefinir senha
+    if (usuario.ContadorAcessos == 0)
+    {
+        return Results.Redirect("/primeiro-acesso");
+    }
+
+    return Results.Redirect("/");
+}).DisableAntiforgery();
 
 app.Run();

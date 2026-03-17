@@ -3,6 +3,8 @@
 @using Microsoft.EntityFrameworkCore
 @using Spid.Data
 @inject AppDbContext Db
+@inject IDbContextFactory<AppDbContext> DbFactory
+@inject IHttpContextAccessor HttpContextAccessor
 @inject UserSession UserSession
 @inject NavigationManager Nav
 
@@ -106,6 +108,14 @@
 
     protected override async Task OnInitializedAsync()
     {
+        // Tenta restaurar a sessão do cookie
+        var httpContext = HttpContextAccessor.HttpContext;
+        if (httpContext?.User is not null && !UserSession.IsAuthenticated)
+        {
+            await using var dbCtx = await DbFactory.CreateDbContextAsync();
+            await UserSession.TryRestoreFromClaimsAsync(httpContext.User, dbCtx);
+        }
+
         if (!UserSession.IsAuthenticated)
         {
             Nav.NavigateTo("/login");
