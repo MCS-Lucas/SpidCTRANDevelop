@@ -1,4 +1,4 @@
-﻿@using Spid.Components.Layout
+@using Spid.Components.Layout
 @inject UserSession UserSession
 @inject NavigationManager Nav
 @inherits LayoutComponentBase
@@ -32,6 +32,6 @@
     private void Logout()
     {
         UserSession.Logout();
-        Nav.NavigateTo("/login");
+        Nav.NavigateTo("/logout-handler", forceLoad: true);
     }
 }

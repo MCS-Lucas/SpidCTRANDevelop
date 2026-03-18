@@ -3,6 +3,7 @@ using System;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Metadata;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using Spid.Data;
 
@@ -11,9 +12,11 @@ using Spid.Data;
 namespace Spid.Migrations
 {
     [DbContext(typeof(AppDbContext))]
-    partial class AppDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260311185754_AdicionarContadorAcessos")]
+    partial class AdicionarContadorAcessos
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -245,12 +248,10 @@ namespace Spid.Migrations
                         .HasColumnType("float");
 
                     b.Property<TimeOnly>("HoraFim")
-
-                        .HasColumnType("time(0)");
+                        .HasColumnType("time");
 
                     b.Property<TimeOnly>("HoraInicio")
-                        .HasColumnType("time(0)");
-
+                        .HasColumnType("time");
 
                     b.Property<string>("IdViagemParceiro")
                         .IsRequired()
@@ -282,13 +283,9 @@ namespace Spid.Migrations
                         .HasColumnType("nvarchar(max)");
 
                     b.Property<decimal>("ValorCotado")
-
-                        .HasPrecision(18, 2)
                         .HasColumnType("decimal(18,2)");
 
                     b.Property<decimal>("ValorFinal")
-                        .HasPrecision(18, 2)
-
                         .HasColumnType("decimal(18,2)");
 
                     b.HasKey("Id");
@@ -321,13 +318,13 @@ namespace Spid.Migrations
                     b.HasOne("Spid.Data.Setor", "Setor")
                         .WithMany()
                         .HasForeignKey("SetorId")
-                        .OnDelete(DeleteBehavior.Restrict)
+                        .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
 
                     b.HasOne("Spid.Data.Usuario", "Usuario")
                         .WithMany()
                         .HasForeignKey("UsuarioId")
-                        .OnDelete(DeleteBehavior.Restrict)
+                        .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
 
                     b.Navigation("Setor");
@@ -373,7 +370,7 @@ namespace Spid.Migrations
                     b.HasOne("Spid.Data.Setor", "Setor")
                         .WithMany("Viagens")
                         .HasForeignKey("SetorId")
-                        .OnDelete(DeleteBehavior.Restrict)
+                        .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
 
                     b.Navigation("Colaborador");

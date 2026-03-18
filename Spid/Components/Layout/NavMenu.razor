@@ -1,7 +1,7 @@
-﻿@using Microsoft.EntityFrameworkCore
+@using Microsoft.EntityFrameworkCore
 @using Spid.Data
 @inject UserSession UserSession
-@inject AppDbContext Db
+@inject IDbContextFactory<AppDbContext> DbFactory
 
 <div class="top-row ps-3 navbar navbar-dark">
     <div class="container-fluid">
@@ -60,18 +60,20 @@
 
     protected override async Task OnInitializedAsync()
     {
-        if (UserSession.IsAuthenticated)
-        {
-            var perfil = UserSession.UsuarioLogado!.Perfil;
-            isAdmin = perfil == "Admin";
+        if (!UserSession.IsAuthenticated) return;
 
-            var permissoes = await Db.PerfisRecurso
-                .Where(pr => pr.Perfil == perfil)
-                .Select(pr => pr.Recurso.Chave)
-                .ToListAsync();
+        var perfil = UserSession.UsuarioLogado!.Perfil;
+        isAdmin = perfil == "Admin";
 
-            podeImportar = permissoes.Contains("ImportarViagens");
-            podeAnalisar = permissoes.Contains("AnalisarViagens");
-        }
+        // Usa contexto isolado via factory para evitar conflito com o AppDbContext
+        // Scoped da página que está sendo renderizada ao mesmo tempo durante o SSR.
+        await using var db = await DbFactory.CreateDbContextAsync();
+        var permissoes = await db.PerfisRecurso
+            .Where(pr => pr.Perfil == perfil)
+            .Select(pr => pr.Recurso.Chave)
+            .ToListAsync();
+
+        podeImportar = permissoes.Contains("ImportarViagens");
+        podeAnalisar = permissoes.Contains("AnalisarViagens");
     }
 }

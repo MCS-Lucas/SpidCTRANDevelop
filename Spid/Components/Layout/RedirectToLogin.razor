@@ -1,5 +1,9 @@
+@using Microsoft.EntityFrameworkCore
+@using Spid.Data
 @inject UserSession UserSession
 @inject NavigationManager Nav
+@inject IDbContextFactory<AppDbContext> DbFactory
+@inject IHttpContextAccessor HttpContextAccessor
 
 @if (UserSession.IsAuthenticated)
 {
@@ -10,8 +14,18 @@
     [Parameter]
     public RenderFragment? ChildContent { get; set; }
 
-    protected override void OnInitialized()
+    protected override async Task OnInitializedAsync()
     {
+        // Restaura a sessão do cookie ANTES de checar IsAuthenticated.
+        // É essencial que aconteça aqui porque o Blazor SSR pode renderizar
+        // de forma síncrona enquanto o servidor processa outras requisições.
+        var httpContext = HttpContextAccessor.HttpContext;
+        if (httpContext?.User is not null)
+        {
+            await using var db = await DbFactory.CreateDbContextAsync();
+            await UserSession.TryRestoreFromClaimsAsync(httpContext.User, db);
+        }
+
         if (!UserSession.IsAuthenticated)
         {
             Nav.NavigateTo("/login");

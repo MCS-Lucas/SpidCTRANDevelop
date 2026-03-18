@@ -38,4 +38,24 @@ public class UserSession
     {
         return _hasher.HashPassword(usuario, senhaTextoPlano);
     }
+
+    /// <summary>
+    /// Restaura a sessão lendo os claims injetados pelo cookie auth no HttpContext
+    /// </summary>
+    public async Task TryRestoreFromClaimsAsync(System.Security.Claims.ClaimsPrincipal user, AppDbContext db)
+    {
+        if (UsuarioLogado is not null) return; // Sessão já ativa na memória
+        
+        var userIdClaim = user.FindFirst("UserId")?.Value;
+        if (int.TryParse(userIdClaim, out int userId))
+        {
+            var usuario = await Microsoft.EntityFrameworkCore.EntityFrameworkQueryableExtensions.FirstOrDefaultAsync(
+                db.Usuarios, u => u.Id == userId && u.Ativo);
+
+            if (usuario is not null)
+            {
+                UsuarioLogado = usuario;
+            }
+        }
+    }
 }

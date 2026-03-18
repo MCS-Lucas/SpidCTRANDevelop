@@ -22,6 +22,9 @@ public class Usuario
     public string? Cpf { get; set; }
     public bool Ativo { get; set; } = true;
 
+    // Contador de acessos: 0 = nunca acessou (primeiro acesso pendente), 1 = já completou primeiro acesso
+    public int ContadorAcessos { get; set; } = 0;
+
     // Setor ao qual o usuário pertence (gestores veem viagens do seu setor)
     public int? SetorId { get; set; }
     public Setor? Setor { get; set; }

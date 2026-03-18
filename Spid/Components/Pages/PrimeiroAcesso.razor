@@ -1,0 +1,209 @@
+@page "/primeiro-acesso"
+@layout LoginLayout
+@using Microsoft.EntityFrameworkCore
+@using Spid.Data
+@inject AppDbContext Db
+@inject IDbContextFactory<AppDbContext> DbFactory
+@inject IHttpContextAccessor HttpContextAccessor
+@inject UserSession UserSession
+@inject NavigationManager Nav
+
+<PageTitle>Primeiro Acesso — SPID</PageTitle>
+
+<div class="login-container">
+    <div class="login-card">
+        <div class="text-center mb-3">
+            <img src="spid_web.png" alt="SPID Logo" style="max-width: 180px; width: 100%;" />
+        </div>
+        <h2 class="text-center mb-2">Primeiro Acesso</h2>
+        <p class="text-center text-muted mb-4">Cadastre sua nova senha para continuar</p>
+
+        @if (!string.IsNullOrEmpty(erro))
+        {
+            <div class="alert alert-danger" role="alert">
+                @erro
+            </div>
+        }
+
+        @if (!string.IsNullOrEmpty(sucesso))
+        {
+            <div class="alert alert-success" role="alert">
+                @sucesso
+            </div>
+        }
+
+        @if (usuario is not null)
+        {
+            <EditForm Model="this" OnValidSubmit="Salvar">
+                <div class="mb-3">
+                    <label class="form-label">Nome</label>
+                    <input type="text" class="form-control" value="@usuario.Nome" disabled />
+                </div>
+
+                <div class="mb-3">
+                    <label class="form-label">E-mail</label>
+                    <InputText @bind-Value="email" class="form-control" placeholder="Ex: joao@spid.com" />
+                </div>
+
+                <div class="row mb-3">
+                    <div class="col-6">
+                        <label class="form-label">Ponto</label>
+                        <input type="text" class="form-control" value="@usuario.Ponto" disabled />
+                    </div>
+                    <div class="col-6">
+                        <label class="form-label">CPF</label>
+                        <InputText @bind-Value="cpf" class="form-control" placeholder="000.000.000-00" />
+                    </div>
+                </div>
+
+                <div class="row mb-3">
+                    <div class="col-6">
+                        <label class="form-label">Perfil</label>
+                        <input type="text" class="form-control" value="@usuario.Perfil" disabled />
+                    </div>
+                    <div class="col-6">
+                        <label class="form-label">Setor</label>
+                        <input type="text" class="form-control" value="@(nomeSetor ?? "Nenhum")" disabled />
+                    </div>
+                </div>
+
+                <hr class="my-3" />
+
+                <div class="mb-3">
+                    <label class="form-label">Nova Senha</label>
+                    <InputText @bind-Value="novaSenha" type="password" class="form-control"
+                               placeholder="Digite sua nova senha" />
+                </div>
+
+                <div class="mb-3">
+                    <label class="form-label">Confirme sua Senha</label>
+                    <InputText @bind-Value="confirmaSenha" type="password" class="form-control"
+                               placeholder="Confirme sua nova senha" />
+                </div>
+
+                <button type="submit" class="btn btn-primary w-100" disabled="@salvando">
+                    @if (salvando)
+                    {
+                        <span class="spinner-border spinner-border-sm me-2" role="status"></span>
+                    }
+                    Salvar e Entrar
+                </button>
+            </EditForm>
+        }
+    </div>
+</div>
+
+@code {
+    private Usuario? usuario;
+    private string? nomeSetor;
+
+    private string email = "";
+    private string cpf = "";
+    private string novaSenha = "";
+    private string confirmaSenha = "";
+
+    private string? erro;
+    private string? sucesso;
+    private bool salvando;
+
+    protected override async Task OnInitializedAsync()
+    {
+        // Tenta restaurar a sessão do cookie
+        var httpContext = HttpContextAccessor.HttpContext;
+        if (httpContext?.User is not null && !UserSession.IsAuthenticated)
+        {
+            await using var dbCtx = await DbFactory.CreateDbContextAsync();
+            await UserSession.TryRestoreFromClaimsAsync(httpContext.User, dbCtx);
+        }
+
+        if (!UserSession.IsAuthenticated)
+        {
+            Nav.NavigateTo("/login");
+            return;
+        }
+
+        usuario = UserSession.UsuarioLogado;
+
+        // Se já completou o primeiro acesso, redireciona para a home
+        if (usuario!.ContadorAcessos > 0)
+        {
+            Nav.NavigateTo("/");
+            return;
+        }
+
+        // Carrega o nome do setor
+        if (usuario.SetorId.HasValue && usuario.SetorId > 0)
+        {
+            var setor = await Db.Setores.FindAsync(usuario.SetorId.Value);
+            nomeSetor = setor?.Nome;
+        }
+
+        // Preenche campos editáveis com dados existentes
+        email = usuario.Email ?? "";
+        cpf = usuario.Cpf ?? "";
+    }
+
+    private async Task Salvar()
+    {
+        erro = null;
+        sucesso = null;
+        salvando = true;
+
+        try
+        {
+            if (string.IsNullOrWhiteSpace(email))
+            {
+                erro = "O e-mail é obrigatório.";
+                return;
+            }
+
+            if (string.IsNullOrWhiteSpace(novaSenha))
+            {
+                erro = "A nova senha é obrigatória.";
+                return;
+            }
+
+            if (novaSenha.Length < 4)
+            {
+                erro = "A senha deve ter no mínimo 4 caracteres.";
+                return;
+            }
+
+            if (novaSenha != confirmaSenha)
+            {
+                erro = "As senhas não conferem.";
+                return;
+            }
+
+            // Atualiza a senha e marca primeiro acesso como concluído
+            var usuarioBd = await Db.Usuarios.FindAsync(usuario!.Id);
+            if (usuarioBd is null)
+            {
+                erro = "Usuário não encontrado.";
+                return;
+            }
+
+            usuarioBd.Email = email;
+            usuarioBd.Cpf = string.IsNullOrWhiteSpace(cpf) ? null : cpf;
+            usuarioBd.SenhaHash = UserSession.HashSenha(usuarioBd, novaSenha);
+            usuarioBd.ContadorAcessos = 1;
+            await Db.SaveChangesAsync();
+
+            // Atualiza a referência na sessão
+            usuario.Email = usuarioBd.Email;
+            usuario.Cpf = usuarioBd.Cpf;
+            usuario.SenhaHash = usuarioBd.SenhaHash;
+            usuario.ContadorAcessos = 1;
+
+            Nav.NavigateTo("/");
+        }
+        catch (Exception ex)
+        {
+            erro = $"Erro ao salvar: {ex.Message}";
+        }
+        finally
+        {
+            salvando = false;
+        }
+    }
+}
