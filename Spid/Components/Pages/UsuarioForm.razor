@@ -73,7 +73,7 @@ else
                     <div class="col-6">
                         <label class="form-label">Setor</label>
                         <InputSelect @bind-Value="setorId" class="form-select">
-                            <option value="0">Nenhum</option>
+                            <option value="0">Selecione...</option>
                             @if (setores is not null)
                             {
                                 @foreach (var s in setores)
@@ -184,10 +184,10 @@ else
         try
         {
             // Validações
-            if (string.IsNullOrWhiteSpace(nome) || string.IsNullOrWhiteSpace(email) ||
-                string.IsNullOrWhiteSpace(ponto) || string.IsNullOrWhiteSpace(perfil))
+            if (string.IsNullOrWhiteSpace(nome) ||
+                string.IsNullOrWhiteSpace(ponto) || string.IsNullOrWhiteSpace(perfil) || setorId <= 0)
             {
-                erro = "Preencha todos os campos obrigatórios (Nome, E-mail, Ponto, Perfil).";
+                erro = "Preencha todos os campos obrigatórios (Nome, Ponto, Perfil, Setor).";
                 return;
             }
 
@@ -204,7 +204,7 @@ else
             if (editando && usuarioEditando is not null)
             {
                 usuarioEditando.Nome = nome;
-                usuarioEditando.Email = email;
+                usuarioEditando.Email = email ?? "";
                 usuarioEditando.Ponto = ponto;
                 usuarioEditando.Cpf = cpf;
                 usuarioEditando.Perfil = perfil;
@@ -224,7 +224,7 @@ else
                 var novoUsuario = new Usuario
                 {
                     Nome = nome,
-                    Email = email,
+                    Email = email ?? "",
                     Ponto = ponto,
                     Cpf = cpf,
                     Perfil = perfil,
