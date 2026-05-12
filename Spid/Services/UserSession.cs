@@ -9,6 +9,8 @@ public class UserSession
 
     public Usuario? UsuarioLogado { get; private set; }
 
+    public DateTimeOffset? SessionExpiresAt { get; set; }
+
     public bool IsAuthenticated => UsuarioLogado is not null;
 
     /// <summary>
@@ -42,7 +44,7 @@ public class UserSession
     /// <summary>
     /// Restaura a sessão lendo os claims injetados pelo cookie auth no HttpContext
     /// </summary>
-    public async Task TryRestoreFromClaimsAsync(System.Security.Claims.ClaimsPrincipal user, AppDbContext db)
+    public async Task TryRestoreFromClaimsAsync(System.Security.Claims.ClaimsPrincipal user, AppDbContext db, Microsoft.AspNetCore.Authentication.AuthenticateResult? authResult = null)
     {
         if (UsuarioLogado is not null) return; // Sessão já ativa na memória
         
@@ -55,6 +57,10 @@ public class UserSession
             if (usuario is not null)
             {
                 UsuarioLogado = usuario;
+                if (authResult?.Properties?.ExpiresUtc != null)
+                {
+                    SessionExpiresAt = authResult.Properties.ExpiresUtc;
+                }
             }
         }
     }

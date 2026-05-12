@@ -12,6 +12,7 @@
         <main>
             <div class="top-row px-4">
                 <span class="me-auto">Olá, <strong>@UserSession.UsuarioLogado?.Nome</strong></span>
+                <SessionTimeout />
                 <a href="javascript:void(0)" @onclick="Logout">Sair</a>
             </div>
 

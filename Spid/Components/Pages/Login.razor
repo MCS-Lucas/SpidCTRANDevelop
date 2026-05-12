@@ -2,9 +2,10 @@
 @layout LoginLayout
 @using Microsoft.EntityFrameworkCore
 @using Microsoft.AspNetCore.Components.Web
+@using Microsoft.AspNetCore.Components.Authorization
 @using Spid.Data
 @inject IDbContextFactory<AppDbContext> DbFactory
-@inject IHttpContextAccessor HttpContextAccessor
+@inject AuthenticationStateProvider AuthStateProvider
 @inject UserSession UserSession
 @inject NavigationManager Nav
 
@@ -30,7 +31,7 @@
             NÃO usar EditForm + SignInAsync aqui — o Blazor roda via WebSocket e
             não permite gravar cookies (cabeçalhos HTTP já foram enviados).
         *@
-        <form method="post" action="/do-login">
+        <form method="post" action="/do-login" data-enhance="false">
             <div class="mb-3">
                 <label for="ponto" class="form-label">Ponto</label>
                 <input id="ponto" name="ponto" type="text" class="form-control" placeholder="Ex: 0001" required />
@@ -38,10 +39,10 @@
 
             <div class="mb-3">
                 <label for="senha" class="form-label">Senha</label>
-                <input id="senha" name="senha" type="password" class="form-control"
-                       placeholder="Digite sua senha" required />
+                <input id="senha" name="senha" type="password" class="form-control" placeholder="Digite sua senha"
+                       required />
             </div>
-            
+
             <br /><br />
             <button type="submit" class="btn btn-primary w-100">
                 Entrar
@@ -61,25 +62,22 @@
 
     protected override async Task OnInitializedAsync()
     {
-        // Tenta restaurar a sessão do cookie
-        var httpContext = HttpContextAccessor.HttpContext;
-        if (httpContext?.User is not null && !UserSession.IsAuthenticated)
+        var authState = await AuthStateProvider.GetAuthenticationStateAsync();
+        var user = authState.User;
+        var isAuthenticated = user.Identity?.IsAuthenticated == true;
+
+        if (isAuthenticated && !UserSession.IsAuthenticated)
         {
             await using var dbCtx = await DbFactory.CreateDbContextAsync();
-            await UserSession.TryRestoreFromClaimsAsync(httpContext.User, dbCtx);
+            await UserSession.TryRestoreFromClaimsAsync(user, dbCtx);
         }
 
-        // Se já está logado, redireciona adequadamente
-        if (UserSession.IsAuthenticated)
+        if (isAuthenticated)
         {
             if (UserSession.UsuarioLogado?.ContadorAcessos == 0)
-            {
                 Nav.NavigateTo("/primeiro-acesso");
-            }
             else
-            {
                 Nav.NavigateTo("/");
-            }
         }
     }
 
@@ -87,10 +85,10 @@
     {
         erroMensagem = Erro switch
         {
-            "campos"  => "Preencha o ponto e a senha.",
+            "campos" => "Preencha o ponto e a senha.",
             "usuario" => "Ponto não encontrado ou usuário inativo.",
-            "senha"   => "Senha incorreta.",
-            _         => null
+            "senha" => "Senha incorreta.",
+            _ => null
         };
     }
 }

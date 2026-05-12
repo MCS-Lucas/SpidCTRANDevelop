@@ -1,0 +1,132 @@
+@using Spid.Services
+@inject UserSession Session
+@inject NavigationManager Nav
+@inject IJSRuntime JS
+@implements IDisposable
+
+@if (Session.IsAuthenticated && Session.SessionExpiresAt.HasValue && !showWarningModal)
+{
+    var timeLeft = Session.SessionExpiresAt.Value - DateTimeOffset.UtcNow;
+    var minutesLeft = (int)Math.Floor(timeLeft.TotalMinutes);
+    if (minutesLeft >= 0)
+    {
+        <span class="text-muted me-3" style="font-size: 0.9rem;" title="Tempo de ociosidade restante">
+            <i class="bi bi-stopwatch"></i> Tempo restante da sessão: @minutesLeft min
+        </span>
+    }
+}
+
+@if (showWarningModal)
+{
+    <div class="modal fade show d-block" tabindex="-1" style="background-color: rgba(0,0,0,0.5); z-index: 9999;">
+        <div class="modal-dialog modal-dialog-centered">
+            <div class="modal-content shadow-lg">
+                <div class="modal-header bg-warning text-dark">
+                    <h5 class="modal-title"><i class="bi bi-clock-history me-2"></i>Sessão Expirando</h5>
+                </div>
+                <div class="modal-body text-center">
+                    <h3 class="display-4 text-warning mb-3">@secondsRemaining s</h3>
+                    <p class="lead">Sua sessão irá expirar em breve por inatividade.</p>
+                    <p>Você será redirecionado para a tela de login. Deseja estender o seu tempo logado?</p>
+                </div>
+                <div class="modal-footer justify-content-center">
+                    <button type="button" class="btn btn-warning btn-lg px-5" @onclick="ExtendSession">Sim, Estender Sessão</button>
+                </div>
+            </div>
+        </div>
+    </div>
+}
+
+@code {
+    private System.Threading.Timer? _timer;
+    private bool showWarningModal = false;
+    private int secondsRemaining = 0;
+
+    protected override void OnInitialized()
+    {
+        if (Session.IsAuthenticated)
+        {
+            _timer = new System.Threading.Timer(OnTick, null, 1000, 1000);
+        }
+    }
+
+    private async void OnTick(object? state)
+    {
+        if (!Session.IsAuthenticated || !Session.SessionExpiresAt.HasValue)
+            return;
+
+        var timeLeft = Session.SessionExpiresAt.Value - DateTimeOffset.UtcNow;
+        var totalSeconds = (int)timeLeft.TotalSeconds;
+
+        if (totalSeconds <= 0)
+        {
+            _timer?.Change(System.Threading.Timeout.Infinite, System.Threading.Timeout.Infinite);
+            await InvokeAsync(Logout);
+        }
+        else if (totalSeconds <= 60)
+        {
+            if (!showWarningModal || secondsRemaining != totalSeconds)
+            {
+                showWarningModal = true;
+                secondsRemaining = totalSeconds;
+                await InvokeAsync(StateHasChanged);
+            }
+        }
+        else
+        {
+            if (showWarningModal)
+            {
+                showWarningModal = false;
+                await InvokeAsync(StateHasChanged);
+            }
+            else if (totalSeconds % 60 == 0)
+            {
+                // Atualiza a tela a cada minuto cravado para re-renderizar o <span class="text-muted">
+                await InvokeAsync(StateHasChanged);
+            }
+        }
+    }
+
+    private async Task ExtendSession()
+    {
+        try
+        {
+            // O fetch bate no endpoint minimal API invisível
+            var json = await JS.InvokeAsync<string>("eval", @"
+                fetch('/extend-session', { method: 'POST' })
+                    .then(res => res.ok ? res.json() : null)
+                    .then(data => data ? JSON.stringify(data) : '')
+                    .catch(() => '')
+            ");
+
+            if (!string.IsNullOrEmpty(json))
+            {
+                using var doc = System.Text.Json.JsonDocument.Parse(json);
+                if (doc.RootElement.TryGetProperty("expiresUtc", out var prop))
+                {
+                    if (DateTimeOffset.TryParse(prop.GetString(), out var novoVencimento))
+                    {
+                        Session.SessionExpiresAt = novoVencimento;
+                        showWarningModal = false;
+                        StateHasChanged();
+                    }
+                }
+            }
+        }
+        catch
+        {
+            // Caiu a internet ou falhou, não fazemos nada (o relógio continua e vai derrubar logado)
+        }
+    }
+
+    private void Logout()
+    {
+        Session.Logout();
+        Nav.NavigateTo("/logout-handler", forceLoad: true);
+    }
+
+    public void Dispose()
+    {
+        _timer?.Dispose();
+    }
+}
