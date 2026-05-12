@@ -14,6 +14,7 @@ frontend/.vite/
 
 
 # logs e coisas locais
+**/keys/
 *.user
 *.suo
 logs
