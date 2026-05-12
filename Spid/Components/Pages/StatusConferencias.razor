@@ -36,14 +36,12 @@ else
                 <div class="col-md-auto">
                     <label class="form-label small mb-1">Ano</label>
                     <div class="d-flex align-items-center gap-1">
-                        <button class="btn btn-sm btn-outline-secondary" @onclick="AnoAnterior" disabled="@(anosDisponiveis.IndexOf(anoSelecionado) >= anosDisponiveis.Count - 1 || anosDisponiveis.Count == 0)">&#9664;</button>
                         <select class="form-select form-select-sm filter-select" @bind="anoSelecionado" @bind:after="Carregar">
                             @foreach (var a in anosDisponiveis)
                             {
                                 <option value="@a">@a</option>
                             }
                         </select>
-                        <button class="btn btn-sm btn-outline-secondary" @onclick="AnoSeguinte" disabled="@(anosDisponiveis.IndexOf(anoSelecionado) <= 0 || anosDisponiveis.Count == 0)">&#9654;</button>
                     </div>
                 </div>
                 @if (setoresStatus is not null && setoresStatus.Count > 0)
@@ -271,25 +269,6 @@ else
         }
     }
 
-    private async Task AnoAnterior()
-    {
-        int index = anosDisponiveis.IndexOf(anoSelecionado);
-        if (index >= 0 && index < anosDisponiveis.Count - 1)
-        {
-            anoSelecionado = anosDisponiveis[index + 1];
-            await Carregar();
-        }
-    }
-
-    private async Task AnoSeguinte()
-    {
-        int index = anosDisponiveis.IndexOf(anoSelecionado);
-        if (index > 0)
-        {
-            anoSelecionado = anosDisponiveis[index - 1];
-            await Carregar();
-        }
-    }
 
     // Detalhes modal
     private List<Viagem>? detalheViagens;

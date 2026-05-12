@@ -146,15 +146,28 @@ else
         <span class="dash-title">📊 Visão Geral</span>
 
         <div class="d-flex align-items-center gap-2 flex-wrap">
-            @if (isAdmin && setores.Count > 0)
+            @if (setores.Count > 0)
             {
-                <select class="setor-select" @bind="setorSelecionadoId" @bind:after="CarregarDados">
-                    <option value="">Todos os Setores</option>
-                    @foreach (var s in setores)
+                <div class="d-flex align-items-center gap-1">
+                    @if (isAdmin)
                     {
-                        <option value="@s.Id">@s.Nome</option>
+                        <button class="filter-btn" @onclick="SetorAnterior" disabled="@(!TemSetorAnterior())">&#9664;</button>
                     }
-                </select>
+                    <select class="setor-select" @bind="setorSelecionadoId" @bind:after="CarregarDados" disabled="@(!isAdmin)">
+                        @if (isAdmin)
+                        {
+                            <option value="">Todos os Setores</option>
+                        }
+                        @foreach (var s in setores)
+                        {
+                            <option value="@s.Id">@s.Nome</option>
+                        }
+                    </select>
+                    @if (isAdmin)
+                    {
+                        <button class="filter-btn" @onclick="SetorSeguinte" disabled="@(!TemSetorSeguinte())">&#9654;</button>
+                    }
+                </div>
             }
 
             <div class="d-flex align-items-center gap-1">
@@ -172,14 +185,12 @@ else
             </div>
 
             <div class="d-flex align-items-center gap-1">
-                <button class="filter-btn" @onclick="AnoAnterior" disabled="@(anosDisponiveis.IndexOf(anoSelecionado) >= anosDisponiveis.Count - 1 || anosDisponiveis.Count == 0)">&#9664;</button>
                 <select class="filter-select" @bind="anoSelecionado" @bind:after="CarregarDados">
                     @foreach (var a in anosDisponiveis)
                     {
                         <option value="@a">@a</option>
                     }
                 </select>
-                <button class="filter-btn" @onclick="AnoSeguinte" disabled="@(anosDisponiveis.IndexOf(anoSelecionado) <= 0 || anosDisponiveis.Count == 0)">&#9654;</button>
             </div>
         </div>
         </div>
@@ -309,24 +320,48 @@ else
         }
     }
 
-    private async Task AnoAnterior()
+
+    private bool TemSetorAnterior()
     {
-        int index = anosDisponiveis.IndexOf(anoSelecionado);
-        if (index >= 0 && index < anosDisponiveis.Count - 1)
-        {
-            anoSelecionado = anosDisponiveis[index + 1];
-            await CarregarDados();
-        }
+        if (!isAdmin || setores.Count == 0) return false;
+        return setorSelecionadoId != null;
     }
 
-    private async Task AnoSeguinte()
+    private bool TemSetorSeguinte()
     {
-        int index = anosDisponiveis.IndexOf(anoSelecionado);
-        if (index > 0)
+        if (!isAdmin || setores.Count == 0) return false;
+        if (setorSelecionadoId == null) return true;
+        var index = setores.FindIndex(s => s.Id == setorSelecionadoId);
+        return index >= 0 && index < setores.Count - 1;
+    }
+
+    private async Task SetorAnterior()
+    {
+        if (!TemSetorAnterior()) return;
+
+        var index = setores.FindIndex(s => s.Id == setorSelecionadoId);
+        if (index == 0)
+            setorSelecionadoId = null;
+        else if (index > 0)
+            setorSelecionadoId = setores[index - 1].Id;
+
+        await CarregarDados();
+    }
+
+    private async Task SetorSeguinte()
+    {
+        if (!TemSetorSeguinte()) return;
+
+        if (setorSelecionadoId == null)
+            setorSelecionadoId = setores[0].Id;
+        else
         {
-            anoSelecionado = anosDisponiveis[index - 1];
-            await CarregarDados();
+            var index = setores.FindIndex(s => s.Id == setorSelecionadoId);
+            if (index >= 0 && index < setores.Count - 1)
+                setorSelecionadoId = setores[index + 1].Id;
         }
+
+        await CarregarDados();
     }
 
     // KPIs
@@ -359,11 +394,14 @@ else
         var perfil = UserSession.UsuarioLogado!.Perfil;
         isAdmin = perfil == "Admin";
 
+        // Contexto próprio — isolado do DbContext scoped do circuito
+        await using (var db = DbFactory.CreateDbContext())
+        {
+            setores = await db.Setores.OrderBy(s => s.Nome).ToListAsync();
+        }
+
         if (isAdmin)
         {
-            // Contexto próprio — isolado do DbContext scoped do circuito
-            await using var db = DbFactory.CreateDbContext();
-            setores = await db.Setores.OrderBy(s => s.Nome).ToListAsync();
             setorSelecionadoId = null; // Padrão: Todos os Setores
         }
         else

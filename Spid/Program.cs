@@ -114,6 +114,18 @@ if (useHttpsRedirection && httpsPort.HasValue)
 
 var app = builder.Build();
 
+// Força a formatação de números, moedas e datas para o padrão brasileiro
+var cultureInfo = new System.Globalization.CultureInfo("pt-BR");
+System.Globalization.CultureInfo.DefaultThreadCurrentCulture = cultureInfo;
+System.Globalization.CultureInfo.DefaultThreadCurrentUICulture = cultureInfo;
+
+app.UseRequestLocalization(new RequestLocalizationOptions
+{
+    DefaultRequestCulture = new Microsoft.AspNetCore.Localization.RequestCulture(cultureInfo),
+    SupportedCultures = new[] { cultureInfo },
+    SupportedUICultures = new[] { cultureInfo }
+});
+
 // Sobe o pipeline primeiro
 app.UseForwardedHeaders();
 
@@ -208,20 +220,23 @@ app.MapPost("/do-login", async (HttpContext ctx, AppDbContext db) =>
     if (result == Microsoft.AspNetCore.Identity.PasswordVerificationResult.Failed)
         return Results.Redirect("/login?erro=senha");
 
+    var sessionTimeoutMinutes = ctx.RequestServices.GetRequiredService<IConfiguration>().GetValue<int>("SessionTimeoutMinutes", 45);
+    var expiresUtc = DateTimeOffset.UtcNow.AddMinutes(sessionTimeoutMinutes);
+
     var claims = new List<System.Security.Claims.Claim>
     {
         new("UserId", usuario.Id.ToString()),
-        new(System.Security.Claims.ClaimTypes.Name, usuario.Nome)
+        new(System.Security.Claims.ClaimTypes.Name, usuario.Nome),
+        new("SessionExpiresUtc", expiresUtc.ToString("o"))
     };
 
     var identity = new System.Security.Claims.ClaimsIdentity(claims, "SpidCookie");
     var principal = new System.Security.Claims.ClaimsPrincipal(identity);
 
-    var sessionTimeoutMinutes = ctx.RequestServices.GetRequiredService<IConfiguration>().GetValue<int>("SessionTimeoutMinutes", 45);
     await ctx.SignInAsync("SpidCookie", principal, new AuthenticationProperties
     {
         IsPersistent = true,
-        ExpiresUtc = DateTimeOffset.UtcNow.AddMinutes(sessionTimeoutMinutes)
+        ExpiresUtc = expiresUtc
     });
 
     if (usuario.ContadorAcessos == 0)
@@ -238,7 +253,13 @@ app.MapPost("/extend-session", async (HttpContext ctx) =>
     var sessionTimeoutMinutes = ctx.RequestServices.GetRequiredService<IConfiguration>().GetValue<int>("SessionTimeoutMinutes", 45);
 
     var newExpiresUtc = DateTimeOffset.UtcNow.AddMinutes(sessionTimeoutMinutes);
-    await ctx.SignInAsync("SpidCookie", ctx.User, new AuthenticationProperties
+
+    var identity = new System.Security.Claims.ClaimsIdentity(ctx.User.Identity);
+    var existingClaim = identity.FindFirst("SessionExpiresUtc");
+    if (existingClaim != null) identity.RemoveClaim(existingClaim);
+    identity.AddClaim(new System.Security.Claims.Claim("SessionExpiresUtc", newExpiresUtc.ToString("o")));
+
+    await ctx.SignInAsync("SpidCookie", new System.Security.Claims.ClaimsPrincipal(identity), new AuthenticationProperties
     {
         IsPersistent = true,
         ExpiresUtc = newExpiresUtc

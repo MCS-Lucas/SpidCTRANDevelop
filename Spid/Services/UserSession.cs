@@ -57,7 +57,12 @@ public class UserSession
             if (usuario is not null)
             {
                 UsuarioLogado = usuario;
-                if (authResult?.Properties?.ExpiresUtc != null)
+                var expiresClaim = user.FindFirst("SessionExpiresUtc")?.Value;
+                if (DateTimeOffset.TryParse(expiresClaim, out var expires))
+                {
+                    SessionExpiresAt = expires;
+                }
+                else if (authResult?.Properties?.ExpiresUtc != null)
                 {
                     SessionExpiresAt = authResult.Properties.ExpiresUtc;
                 }

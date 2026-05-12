@@ -30,12 +30,13 @@
                     <p>Você será redirecionado para a tela de login. Deseja estender o seu tempo logado?</p>
                 </div>
                 <div class="modal-footer justify-content-center">
-                    <button type="button" class="btn btn-warning btn-lg px-5" @onclick="ExtendSession">Sim, Estender Sessão</button>
+                    <button type="button" class="btn btn-warning btn-lg px-5" @onclick="ExtendSession">Sim, Estender
+                        Sessão</button>
+                    </div>
                 </div>
             </div>
         </div>
-    </div>
-}
+    }
 
 @code {
     private System.Threading.Timer? _timer;
@@ -91,9 +92,9 @@
     {
         try
         {
-            // O fetch bate no endpoint minimal API invisível
+            // O fetch bate no endpoint minimal API invisível enviando o cookie
             var json = await JS.InvokeAsync<string>("eval", @"
-                fetch('/extend-session', { method: 'POST' })
+                fetch('/extend-session', { method: 'POST', credentials: 'same-origin' })
                     .then(res => res.ok ? res.json() : null)
                     .then(data => data ? JSON.stringify(data) : '')
                     .catch(() => '')

@@ -72,7 +72,7 @@ else
                     </div>
                     <div class="col-6">
                         <label class="form-label">Setor</label>
-                        <InputSelect @bind-Value="setorId" class="form-select">
+                        <InputSelect @bind-Value="setorId" class="form-select" disabled="@(perfil == "Admin")">
                             <option value="0">Selecione...</option>
                             @if (setores is not null)
                             {
@@ -184,11 +184,21 @@ else
         try
         {
             // Validações
-            if (string.IsNullOrWhiteSpace(nome) ||
-                string.IsNullOrWhiteSpace(ponto) || string.IsNullOrWhiteSpace(perfil) || setorId <= 0)
+            if (string.IsNullOrWhiteSpace(nome) || string.IsNullOrWhiteSpace(ponto) || string.IsNullOrWhiteSpace(perfil))
             {
-                erro = "Preencha todos os campos obrigatórios (Nome, Ponto, Perfil, Setor).";
+                erro = "Preencha Nome, Ponto e Perfil.";
                 return;
+            }
+
+            if (perfil != "Admin" && setorId <= 0)
+            {
+                erro = "É obrigatório selecionar um Setor para usuários que não são Admin.";
+                return;
+            }
+
+            if (perfil == "Admin")
+            {
+                setorId = 0; // Admin não precisa de setor
             }
 
             // Verificar ponto duplicado
