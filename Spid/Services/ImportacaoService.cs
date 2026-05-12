@@ -21,7 +21,7 @@ public class ImportacaoService
         _db = db;
     }
 
-    public async Task<ImportacaoResult> ImportarExcelAsync(Stream stream)
+    public async Task<ImportacaoResult> ImportarExcelAsync(Stream stream, int usuarioId)
     {
         var result = new ImportacaoResult();
 
@@ -144,6 +144,13 @@ public class ImportacaoService
 
         if (result.Importadas > 0)
         {
+            var log = new ImportacaoLog
+            {
+                DataImportacao = DateTime.Now,
+                UsuarioId = usuarioId,
+                QuantidadeImportada = result.Importadas
+            };
+            _db.ImportacoesLog.Add(log);
             await _db.SaveChangesAsync();
         }
 

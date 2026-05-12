@@ -2,6 +2,7 @@
 @using Microsoft.EntityFrameworkCore
 @using Microsoft.AspNetCore.Components.Forms
 @using Spid.Data
+@using System.Globalization
 @inject AppDbContext Db
 @inject UserSession UserSession
 @inject ImportacaoService ImportacaoService
@@ -36,6 +37,16 @@ else
                 <p class="text-muted small">
                     📎 <strong>@arquivoSelecionado.Name</strong> (@FormatarTamanho(arquivoSelecionado.Size))
                 </p>
+            }
+
+            @if (ultimoLog is not null)
+            {
+                <div class="alert alert-secondary mt-3 mb-3 d-flex align-items-center">
+                    <i class="bi bi-info-circle-fill me-2 text-primary"></i>
+                    <div>
+                        <strong>Última Importação:</strong> @ultimoLog.Usuario?.Nome - @ultimoLog.DataImportacao.ToString("dddd, dd/MM/yyyy, HH:mm", new CultureInfo("pt-BR"))
+                    </div>
+                </div>
             }
 
             <button class="btn btn-primary" @onclick="Importar"
@@ -88,6 +99,7 @@ else
     private IBrowserFile? arquivoSelecionado;
     private bool processando;
     private ImportacaoResult? resultado;
+    private ImportacaoLog? ultimoLog;
 
     protected override async Task OnInitializedAsync()
     {
@@ -101,6 +113,19 @@ else
         var perfil = UserSession.UsuarioLogado!.Perfil;
         temPermissao = await Db.PerfisRecurso
             .AnyAsync(pr => pr.Perfil == perfil && pr.Recurso.Chave == "ImportarViagens");
+
+        if (temPermissao)
+        {
+            await CarregarUltimoLog();
+        }
+    }
+
+    private async Task CarregarUltimoLog()
+    {
+        ultimoLog = await Db.ImportacoesLog
+            .Include(l => l.Usuario)
+            .OrderByDescending(l => l.DataImportacao)
+            .FirstOrDefaultAsync();
     }
 
     private void OnArquivoSelecionado(InputFileChangeEventArgs e)
@@ -124,7 +149,12 @@ else
             await stream.CopyToAsync(ms);
             ms.Position = 0;
 
-            resultado = await ImportacaoService.ImportarExcelAsync(ms);
+            resultado = await ImportacaoService.ImportarExcelAsync(ms, UserSession.UsuarioLogado!.Id);
+            
+            if (resultado.Importadas > 0)
+            {
+                await CarregarUltimoLog();
+            }
         }
         catch (Exception ex)
         {

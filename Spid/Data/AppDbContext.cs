@@ -14,6 +14,7 @@ public class AppDbContext : DbContext
     public DbSet<Recurso> Recursos => Set<Recurso>();
     public DbSet<PerfilRecurso> PerfisRecurso => Set<PerfilRecurso>();
     public DbSet<ConferenciaMensal> ConferenciasMensais => Set<ConferenciaMensal>();
+    public DbSet<ImportacaoLog> ImportacoesLog => Set<ImportacaoLog>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -23,6 +24,12 @@ public class AppDbContext : DbContext
         modelBuilder.Entity<Usuario>()
             .HasIndex(u => u.Ponto)
             .IsUnique();
+
+        modelBuilder.Entity<ImportacaoLog>()
+            .HasOne(l => l.Usuario)
+            .WithMany()
+            .HasForeignKey(l => l.UsuarioId)
+            .OnDelete(DeleteBehavior.Restrict);
 
         // Relacionamento: 1 Setor -> N Usuários (gestores)
         modelBuilder.Entity<Usuario>()
