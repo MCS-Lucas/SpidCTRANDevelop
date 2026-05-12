@@ -23,13 +23,35 @@ else
     <div class="card shadow-sm mb-4">
         <div class="card-body d-flex gap-3 align-items-end flex-wrap">
             <div>
-                <label class="form-label small mb-1">Mês/Ano</label>
-                <input type="month" class="form-control form-control-sm" value="@filtroMes.ToString("yyyy-MM")"
-                       @onchange="OnMesAlterado" />
+                <label class="form-label small mb-1">Mês</label>
+                <div class="d-flex align-items-center gap-1">
+                    <button class="btn btn-sm btn-outline-secondary" @onclick="MesAnterior" disabled="@(mesSelecionado <= 1)">&#9664;</button>
+                    <select class="form-select form-select-sm filter-select" @bind="mesSelecionado" @bind:after="CarregarViagens">
+                        @for (int m = 1; m <= 12; m++)
+                        {
+                            var mes = m;
+                            <option value="@mes">@System.Globalization.CultureInfo.GetCultureInfo("pt-BR").DateTimeFormat.GetMonthName(mes)</option>
+                        }
+                    </select>
+                    <button class="btn btn-sm btn-outline-secondary" @onclick="MesSeguinte" disabled="@(mesSelecionado >= 12)">&#9654;</button>
+                </div>
+            </div>
+            <div>
+                <label class="form-label small mb-1">Ano</label>
+                <div class="d-flex align-items-center gap-1">
+                    <button class="btn btn-sm btn-outline-secondary" @onclick="AnoAnterior" disabled="@(anosDisponiveis.IndexOf(anoSelecionado) >= anosDisponiveis.Count - 1 || anosDisponiveis.Count == 0)">&#9664;</button>
+                    <select class="form-select form-select-sm filter-select" @bind="anoSelecionado" @bind:after="CarregarViagens">
+                        @foreach (var a in anosDisponiveis)
+                        {
+                            <option value="@a">@a</option>
+                        }
+                    </select>
+                    <button class="btn btn-sm btn-outline-secondary" @onclick="AnoSeguinte" disabled="@(anosDisponiveis.IndexOf(anoSelecionado) <= 0 || anosDisponiveis.Count == 0)">&#9654;</button>
+                </div>
             </div>
             <div>
                 <label class="form-label small mb-1">Status</label>
-                <select class="form-select form-select-sm" @bind="filtroStatus" @bind:after="Filtrar">
+                <select class="form-select form-select-sm filter-select" @bind="filtroStatus" @bind:after="Filtrar">
                     <option value="">Todos</option>
                     <option value="Pendente">Pendente</option>
                     <option value="OK">OK</option>
@@ -87,7 +109,7 @@ else
     <div class="d-flex justify-content-between align-items-center mb-2">
         <div class="d-flex align-items-center gap-2">
             <small class="text-muted">Exibir</small>
-            <select class="form-select form-select-sm" style="width: auto;" @bind="itensPorPagina"
+            <select class="form-select form-select-sm filter-select" style="width: auto;" @bind="itensPorPagina"
                     @bind:after="OnPageSizeChanged">
                 <option value="10">10</option>
                 <option value="20">20</option>
@@ -202,14 +224,14 @@ else
                 @if (jaConfirmou && confirmadoPorNome is not null)
                 {
                     <div class="alert alert-success mb-0">
-                        ✅ Verificação de <strong>@filtroMes.ToString("MM/yyyy")</strong> confirmada por
+                        ✅ Verificação de <strong>@($"{mesSelecionado:D2}/{anoSelecionado}")</strong> confirmada por
                         <strong>@confirmadoPorNome</strong> em @confirmadoEm?.ToString("dd/MM/yyyy HH:mm")
                     </div>
                 }
                 else if (jaConfirmou)
                 {
                     <div class="alert alert-success mb-0">
-                        ✅ Verificação do mês <strong>@filtroMes.ToString("MM/yyyy")</strong> já foi confirmada.
+                        ✅ Verificação do mês <strong>@($"{mesSelecionado:D2}/{anoSelecionado}")</strong> já foi confirmada.
                     </div>
                 }
                 else if (todasVerificadas)
@@ -222,7 +244,7 @@ else
                         {
                             <span class="spinner-border spinner-border-sm me-2"></span>
                         }
-                        ✅ Confirmar Verificação de @filtroMes.ToString("MM/yyyy")
+                        ✅ Confirmar Verificação de @($"{mesSelecionado:D2}/{anoSelecionado}")
                     </button>
                 }
                 else
@@ -276,7 +298,47 @@ else
     private List<Viagem>? viagens;
     private List<Viagem> viagensFiltradas = new();
 
-    private DateTime filtroMes = new DateTime(DateTime.Now.Year, DateTime.Now.Month, 1);
+    private int mesSelecionado = DateTime.Now.Month;
+    private int anoSelecionado = DateTime.Now.Year;
+    private List<int> anosDisponiveis = new();
+
+    private async Task MesAnterior()
+    {
+        if (mesSelecionado > 1)
+        {
+            mesSelecionado--;
+            await CarregarViagens();
+        }
+    }
+
+    private async Task MesSeguinte()
+    {
+        if (mesSelecionado < 12)
+        {
+            mesSelecionado++;
+            await CarregarViagens();
+        }
+    }
+
+    private async Task AnoAnterior()
+    {
+        int index = anosDisponiveis.IndexOf(anoSelecionado);
+        if (index >= 0 && index < anosDisponiveis.Count - 1)
+        {
+            anoSelecionado = anosDisponiveis[index + 1];
+            await CarregarViagens();
+        }
+    }
+
+    private async Task AnoSeguinte()
+    {
+        int index = anosDisponiveis.IndexOf(anoSelecionado);
+        if (index > 0)
+        {
+            anoSelecionado = anosDisponiveis[index - 1];
+            await CarregarViagens();
+        }
+    }
     private string filtroStatus = "";
     private string filtroColaborador = "";
 
@@ -313,6 +375,11 @@ else
 
         if (!temPermissao) return;
 
+        anosDisponiveis = await Db.Viagens.Select(v => v.DataViagem.Year).Distinct().OrderByDescending(y => y).ToListAsync();
+        if (anosDisponiveis.Count == 0 || !anosDisponiveis.Contains(DateTime.Now.Year))
+            anosDisponiveis.Insert(0, DateTime.Now.Year);
+        anosDisponiveis = anosDisponiveis.Distinct().OrderByDescending(y => y).ToList();
+
         await CarregarViagens();
     }
 
@@ -321,7 +388,7 @@ else
         var setorId = UserSession.UsuarioLogado!.SetorId;
 
         // Filtro por mês/ano
-        var mesInicio = new DateOnly(filtroMes.Year, filtroMes.Month, 1);
+        var mesInicio = new DateOnly(anoSelecionado, mesSelecionado, 1);
         var mesFim = mesInicio.AddMonths(1);
 
         var query = Db.Viagens
@@ -352,7 +419,7 @@ else
 
         var conferencia = await Db.ConferenciasMensais
             .Include(c => c.Usuario)
-            .FirstOrDefaultAsync(c => c.SetorId == setorId.Value && c.Ano == filtroMes.Year && c.Mes == filtroMes.Month);
+            .FirstOrDefaultAsync(c => c.SetorId == setorId.Value && c.Ano == anoSelecionado && c.Mes == mesSelecionado);
 
         jaConfirmou = conferencia is not null;
         confirmadoPorNome = conferencia?.Usuario.Nome;
@@ -406,14 +473,7 @@ else
         Filtrar();
     }
 
-    private async Task OnMesAlterado(ChangeEventArgs e)
-    {
-        if (DateTime.TryParse(e.Value?.ToString() + "-01", out var data))
-        {
-            filtroMes = data;
-            await CarregarViagens();
-        }
-    }
+
 
     private async Task Aprovar(Viagem v)
     {
@@ -471,7 +531,7 @@ else
         if (!setorId.HasValue) return;
 
         var conf = await Db.ConferenciasMensais
-            .FirstOrDefaultAsync(c => c.SetorId == setorId.Value && c.Ano == filtroMes.Year && c.Mes == filtroMes.Month);
+            .FirstOrDefaultAsync(c => c.SetorId == setorId.Value && c.Ano == anoSelecionado && c.Mes == mesSelecionado);
 
         if (conf is not null)
         {
@@ -491,8 +551,8 @@ else
             var conferencia = new ConferenciaMensal
             {
                 SetorId = setorId.Value,
-                Ano = filtroMes.Year,
-                Mes = filtroMes.Month,
+                Ano = anoSelecionado,
+                Mes = mesSelecionado,
                 UsuarioId = UserSession.UsuarioLogado!.Id,
                 DataConfirmacao = DateTime.Now
             };

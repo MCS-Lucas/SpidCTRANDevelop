@@ -101,6 +101,31 @@
         font-weight: 600;
         cursor: pointer;
     }
+
+    .filter-btn {
+        border-radius: 8px;
+        border: 1px solid #dee2e6;
+        padding: 6px 12px;
+        font-size: .875rem;
+        background-color: #fff;
+        cursor: pointer;
+        color: #6c757d;
+        transition: all 0.2s;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+    }
+
+    .filter-btn:hover:not(:disabled) {
+        background-color: #f8f9fa;
+        color: #1a73e8;
+        border-color: #1a73e8;
+    }
+
+    .filter-btn:disabled {
+        opacity: 0.4;
+        cursor: not-allowed;
+    }
 </style>
 
 @if (!UserSession.IsAuthenticated)
@@ -124,6 +149,7 @@ else
             @if (isAdmin && setores.Count > 0)
             {
                 <select class="setor-select" @bind="setorSelecionadoId" @bind:after="CarregarDados">
+                    <option value="">Todos os Setores</option>
                     @foreach (var s in setores)
                     {
                         <option value="@s.Id">@s.Nome</option>
@@ -131,22 +157,31 @@ else
                 </select>
             }
 
-            <select class="filter-select" @bind="mesSelecionado" @bind:after="CarregarDados">
-                @for (int m = 1; m <= 12; m++)
-                {
-                    var mes = m;
-                    <option value="@mes">
-                        @System.Globalization.CultureInfo.GetCultureInfo("pt-BR").DateTimeFormat.GetMonthName(mes)</option>
+            <div class="d-flex align-items-center gap-1">
+                <button class="filter-btn" @onclick="MesAnterior" disabled="@(mesSelecionado <= 1)">&#9664;</button>
+                <select class="filter-select" @bind="mesSelecionado" @bind:after="CarregarDados">
+                    @for (int m = 1; m <= 12; m++)
+                    {
+                        var mes = m;
+                        <option value="@mes">
+                            @System.Globalization.CultureInfo.GetCultureInfo("pt-BR").DateTimeFormat.GetMonthName(mes)
+                        </option>
                     }
                 </select>
+                <button class="filter-btn" @onclick="MesSeguinte" disabled="@(mesSelecionado >= 12)">&#9654;</button>
+            </div>
 
+            <div class="d-flex align-items-center gap-1">
+                <button class="filter-btn" @onclick="AnoAnterior" disabled="@(anosDisponiveis.IndexOf(anoSelecionado) >= anosDisponiveis.Count - 1 || anosDisponiveis.Count == 0)">&#9664;</button>
                 <select class="filter-select" @bind="anoSelecionado" @bind:after="CarregarDados">
-                    @for (int a = DateTime.Now.Year; a >= DateTime.Now.Year - 3; a--)
+                    @foreach (var a in anosDisponiveis)
                     {
                         <option value="@a">@a</option>
                     }
                 </select>
+                <button class="filter-btn" @onclick="AnoSeguinte" disabled="@(anosDisponiveis.IndexOf(anoSelecionado) <= 0 || anosDisponiveis.Count == 0)">&#9654;</button>
             </div>
+        </div>
         </div>
 
         <!-- KPI Cards -->
@@ -253,6 +288,46 @@ else
     private int anoSelecionado = DateTime.Now.Year;
 
     private List<Setor> setores = new();
+    private List<int> anosDisponiveis = new();
+
+    // ── Navegação de Data ────────────────────────────────────
+    private async Task MesAnterior()
+    {
+        if (mesSelecionado > 1)
+        {
+            mesSelecionado--;
+            await CarregarDados();
+        }
+    }
+
+    private async Task MesSeguinte()
+    {
+        if (mesSelecionado < 12)
+        {
+            mesSelecionado++;
+            await CarregarDados();
+        }
+    }
+
+    private async Task AnoAnterior()
+    {
+        int index = anosDisponiveis.IndexOf(anoSelecionado);
+        if (index >= 0 && index < anosDisponiveis.Count - 1)
+        {
+            anoSelecionado = anosDisponiveis[index + 1];
+            await CarregarDados();
+        }
+    }
+
+    private async Task AnoSeguinte()
+    {
+        int index = anosDisponiveis.IndexOf(anoSelecionado);
+        if (index > 0)
+        {
+            anoSelecionado = anosDisponiveis[index - 1];
+            await CarregarDados();
+        }
+    }
 
     // KPIs
     private int totalCorridas;
@@ -289,11 +364,19 @@ else
             // Contexto próprio — isolado do DbContext scoped do circuito
             await using var db = DbFactory.CreateDbContext();
             setores = await db.Setores.OrderBy(s => s.Nome).ToListAsync();
-            setorSelecionadoId = setores.FirstOrDefault()?.Id;
+            setorSelecionadoId = null; // Padrão: Todos os Setores
         }
         else
         {
             setorSelecionadoId = UserSession.UsuarioLogado.SetorId;
+        }
+
+        await using (var db = DbFactory.CreateDbContext())
+        {
+            anosDisponiveis = await db.Viagens.Select(v => v.DataViagem.Year).Distinct().OrderByDescending(y => y).ToListAsync();
+            if (anosDisponiveis.Count == 0 || !anosDisponiveis.Contains(DateTime.Now.Year))
+                anosDisponiveis.Insert(0, DateTime.Now.Year);
+            anosDisponiveis = anosDisponiveis.Distinct().OrderByDescending(y => y).ToList();
         }
 
         await CarregarDados();
