@@ -10,7 +10,7 @@
 
 <PageTitle>Importar Viagens — SPID</PageTitle>
 
-<h3 class="mb-4">📥 Importar Viagens</h3>
+<h3 class="mb-4"><Icon Name="file-import" Size="24" Class="page-header-icon" /> Importar Viagens</h3>
 
 @if (!temPermissao)
 {
@@ -35,7 +35,7 @@ else
             @if (arquivoSelecionado is not null)
             {
                 <p class="text-muted small">
-                    📎 <strong>@arquivoSelecionado.Name</strong> (@FormatarTamanho(arquivoSelecionado.Size))
+                    <Icon Name="paperclip" Size="14" /> <strong>@arquivoSelecionado.Name</strong> (@FormatarTamanho(arquivoSelecionado.Size))
                 </p>
             }
 
@@ -68,20 +68,20 @@ else
     {
         <div class="mt-4">
             <div class="alert alert-success">
-                ✅ <strong>@resultado.Importadas</strong> viagem(ns) importada(s) com sucesso.
+                <Icon Name="circle-check" Size="16" Class="text-success me-1" /> <strong>@resultado.Importadas</strong> viagem(ns) importada(s) com sucesso.
             </div>
 
             @if (resultado.Ignoradas > 0)
             {
                 <div class="alert alert-info">
-                    ⏭️ <strong>@resultado.Ignoradas</strong> viagem(ns) ignorada(s) (já existiam no banco).
+                    <Icon Name="forward" Size="16" Class="text-info me-1" /> <strong>@resultado.Ignoradas</strong> viagem(ns) ignorada(s) (já existiam no banco).
                 </div>
             }
 
             @if (resultado.Erros.Count > 0)
             {
                 <div class="alert alert-danger">
-                    <p>❌ <strong>@resultado.Erros.Count</strong> erro(s) durante a importação:</p>
+                    <p><Icon Name="circle-xmark" Size="16" Class="text-danger me-1" /> <strong>@resultado.Erros.Count</strong> erro(s) durante a importação:</p>
                     <ul class="mb-0">
                         @foreach (var erro in resultado.Erros)
                         {
@@ -105,7 +105,7 @@ else
     {
         if (!UserSession.IsAuthenticated)
         {
-            Nav.NavigateTo("/login");
+            Nav.NavigateTo("/login", forceLoad: true);
             return;
         }
 

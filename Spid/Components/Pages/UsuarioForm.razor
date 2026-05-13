@@ -8,7 +8,7 @@
 
 <PageTitle>@(editando ? "Editar" : "Novo") Usuário — SPID</PageTitle>
 
-<h3 class="mb-4">@(editando ? "✏️ Editar Usuário" : "➕ Novo Usuário")</h3>
+<h3 class="mb-4">@if (editando) { <Icon Name="user-pen" Size="24" Class="page-header-icon" /> <text>Editar Usuário</text> } else { <Icon Name="user-plus" Size="24" Class="page-header-icon" /> <text>Novo Usuário</text> }</h3>
 
 @if (!isAdmin)
 {
@@ -145,7 +145,7 @@ else
     {
         if (!UserSession.IsAuthenticated)
         {
-            Nav.NavigateTo("/login");
+            Nav.NavigateTo("/login", forceLoad: true);
             return;
         }
 

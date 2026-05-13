@@ -8,9 +8,9 @@
 <PageTitle>Gerenciar Usuários — SPID</PageTitle>
 
 <div class="d-flex justify-content-between align-items-center mb-4">
-    <h3>👥 Gerenciar Usuários</h3>
+    <h3><Icon Name="users-gear" Size="24" Class="page-header-icon" /> Gerenciar Usuários</h3>
     <a href="/usuarios/novo" class="btn btn-primary">
-        + Novo Usuário
+        <Icon Name="user-plus" Size="14" /> Novo Usuário
     </a>
 </div>
 
@@ -61,10 +61,10 @@ else
                         </td>
                         <td class="text-center">
                             <a href="/usuarios/editar/@u.Id" class="btn btn-sm btn-outline-primary me-1">
-                                ✏️ Editar
+                                <Icon Name="pen-to-square" Size="14" /> Editar
                             </a>
                             <button class="btn btn-sm btn-outline-danger" @onclick="() => ConfirmarExclusao(u)">
-                                🗑️ Excluir
+                                <Icon Name="trash" Size="14" /> Excluir
                             </button>
                         </td>
                     </tr>
@@ -105,7 +105,7 @@ else
     {
         if (!UserSession.IsAuthenticated)
         {
-            Nav.NavigateTo("/login");
+            Nav.NavigateTo("/login", forceLoad: true);
             return;
         }
 
@@ -144,7 +144,7 @@ else
             return;
         }
 
-        Db.Usuarios.Remove(usuarioParaExcluir);
+        usuarioParaExcluir.Ativo = false;
         await Db.SaveChangesAsync();
         usuarioParaExcluir = null;
         await CarregarUsuarios();

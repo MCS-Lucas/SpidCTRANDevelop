@@ -11,7 +11,7 @@
     if (minutesLeft >= 0)
     {
         <span class="text-muted me-3" style="font-size: 0.9rem;" title="Tempo de ociosidade restante">
-            <i class="bi bi-stopwatch"></i> Tempo restante da sessão: @minutesLeft min
+            <Icon Name="stopwatch" Size="14" /> Tempo restante da sessão: @minutesLeft min
         </span>
     }
 }
@@ -22,7 +22,7 @@
         <div class="modal-dialog modal-dialog-centered">
             <div class="modal-content shadow-lg">
                 <div class="modal-header bg-warning text-dark">
-                    <h5 class="modal-title"><i class="bi bi-clock-history me-2"></i>Sessão Expirando</h5>
+                    <h5 class="modal-title"><Icon Name="clock" Size="18" Class="me-2" />Sessão Expirando</h5>
                 </div>
                 <div class="modal-body text-center">
                     <h3 class="display-4 text-warning mb-3">@secondsRemaining s</h3>
@@ -30,13 +30,12 @@
                     <p>Você será redirecionado para a tela de login. Deseja estender o seu tempo logado?</p>
                 </div>
                 <div class="modal-footer justify-content-center">
-                    <button type="button" class="btn btn-warning btn-lg px-5" @onclick="ExtendSession">Sim, Estender
-                        Sessão</button>
-                    </div>
+                    <button type="button" class="btn btn-warning btn-lg px-5" @onclick="ExtendSession">Sim, Estender Sessão</button>
                 </div>
             </div>
         </div>
-    }
+    </div>
+}
 
 @code {
     private System.Threading.Timer? _timer;
@@ -92,13 +91,7 @@
     {
         try
         {
-            // O fetch bate no endpoint minimal API invisível enviando o cookie
-            var json = await JS.InvokeAsync<string>("eval", @"
-                fetch('/extend-session', { method: 'POST', credentials: 'same-origin' })
-                    .then(res => res.ok ? res.json() : null)
-                    .then(data => data ? JSON.stringify(data) : '')
-                    .catch(() => '')
-            ");
+            var json = await JS.InvokeAsync<string>("extendSession");
 
             if (!string.IsNullOrEmpty(json))
             {
@@ -116,7 +109,6 @@
         }
         catch
         {
-            // Caiu a internet ou falhou, não fazemos nada (o relógio continua e vai derrubar logado)
         }
     }
 

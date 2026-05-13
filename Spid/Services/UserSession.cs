@@ -47,7 +47,7 @@ public class UserSession
     public async Task TryRestoreFromClaimsAsync(System.Security.Claims.ClaimsPrincipal user, AppDbContext db, Microsoft.AspNetCore.Authentication.AuthenticateResult? authResult = null)
     {
         if (UsuarioLogado is not null) return; // Sessão já ativa na memória
-        
+
         var userIdClaim = user.FindFirst("UserId")?.Value;
         if (int.TryParse(userIdClaim, out int userId))
         {
@@ -57,12 +57,7 @@ public class UserSession
             if (usuario is not null)
             {
                 UsuarioLogado = usuario;
-                var expiresClaim = user.FindFirst("SessionExpiresUtc")?.Value;
-                if (DateTimeOffset.TryParse(expiresClaim, out var expires))
-                {
-                    SessionExpiresAt = expires;
-                }
-                else if (authResult?.Properties?.ExpiresUtc != null)
+                if (authResult?.Properties?.ExpiresUtc != null)
                 {
                     SessionExpiresAt = authResult.Properties.ExpiresUtc;
                 }

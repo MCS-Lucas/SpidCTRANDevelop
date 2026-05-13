@@ -41,117 +41,184 @@ public class ImportacaoService
         // Percorrer linhas (pular cabeçalho na linha 1)
         var lastRow = ws.LastRowUsed()?.RowNumber() ?? 1;
 
-        for (int row = 2; row <= lastRow; row++)
+        // Desabilitar detecção automática de mudanças para performance em bulk
+        _db.ChangeTracker.AutoDetectChangesEnabled = false;
+
+        try
         {
-            try
+            // Primeira passada: resolver/criar entidades auxiliares
+            var novosSetores = new List<Setor>();
+            var novosParceiros = new List<ParceiroViagem>();
+            var novosColaboradores = new List<(int row, string cpf, string nome, Setor setor)>();
+
+            for (int row = 2; row <= lastRow; row++)
             {
-                var idViagemParceiro = ws.Cell(row, 16).GetString().Trim();
-
-                // Deduplicação: ignorar se já existe
-                if (string.IsNullOrWhiteSpace(idViagemParceiro) || idsExistentes.Contains(idViagemParceiro))
+                try
                 {
-                    result.Ignoradas++;
-                    continue;
-                }
+                    var idViagemParceiro = ws.Cell(row, 16).GetString().Trim();
+                    if (string.IsNullOrWhiteSpace(idViagemParceiro) || idsExistentes.Contains(idViagemParceiro))
+                        continue;
 
-                // Parsear dados da linha
-                var dataCell = ws.Cell(row, 1);
-                var nomeColab = ws.Cell(row, 2).GetString().Trim();
-                var cpf = ws.Cell(row, 3).GetString().Trim();
-                var centroCusto = ws.Cell(row, 4).GetString().Trim();
-                var origem = ws.Cell(row, 5).GetString().Trim();
-                var destino = ws.Cell(row, 6).GetString().Trim();
-                var parceiroNome = ws.Cell(row, 7).GetString().Trim();
-                var valorCotadoCell = ws.Cell(row, 8);
-                var valorFinalCell = ws.Cell(row, 9);
-                var statusOrigem = ws.Cell(row, 10).GetString().Trim();
-                var horaInicioCell = ws.Cell(row, 11);
-                var horaFimCell = ws.Cell(row, 12);
-                var distanciaCell = ws.Cell(row, 13);
-                var avaliacaoStr = ws.Cell(row, 14).GetString().Trim();
-                var motivo = ws.Cell(row, 15).GetString().Trim();
+                    var centroCusto = ws.Cell(row, 4).GetString().Trim();
+                    var parceiroNome = ws.Cell(row, 7).GetString().Trim();
+                    var cpf = ws.Cell(row, 3).GetString().Trim();
+                    var nomeColab = ws.Cell(row, 2).GetString().Trim();
 
-                // Resolver ou criar Setor
-                if (!setoresCache.TryGetValue(centroCusto, out var setor))
-                {
-                    setor = new Setor { Nome = centroCusto };
-                    _db.Setores.Add(setor);
-                    await _db.SaveChangesAsync();
-                    setoresCache[centroCusto] = setor;
-                }
-
-                // Resolver ou criar Parceiro
-                if (!parceirosCache.TryGetValue(parceiroNome, out var parceiro))
-                {
-                    parceiro = new ParceiroViagem { Nome = parceiroNome };
-                    _db.Parceiros.Add(parceiro);
-                    await _db.SaveChangesAsync();
-                    parceirosCache[parceiroNome] = parceiro;
-                }
-
-                // Resolver ou criar Colaborador
-                if (!colaboradoresCache.TryGetValue(cpf, out var colaborador))
-                {
-                    colaborador = new Colaborador
+                    if (!setoresCache.ContainsKey(centroCusto))
                     {
-                        Nome = nomeColab,
-                        Cpf = cpf,
-                        SetorId = setor.Id
-                    };
-                    _db.Colaboradores.Add(colaborador);
-                    await _db.SaveChangesAsync();
-                    colaboradoresCache[cpf] = colaborador;
+                        var setor = new Setor { Nome = centroCusto };
+                        novosSetores.Add(setor);
+                        setoresCache[centroCusto] = setor;
+                    }
+
+                    if (!parceirosCache.ContainsKey(parceiroNome))
+                    {
+                        var parceiro = new ParceiroViagem { Nome = parceiroNome };
+                        novosParceiros.Add(parceiro);
+                        parceirosCache[parceiroNome] = parceiro;
+                    }
+
+                    if (!colaboradoresCache.ContainsKey(cpf))
+                    {
+                        novosColaboradores.Add((row, cpf, nomeColab, setoresCache[centroCusto]));
+                        colaboradoresCache[cpf] = null!; // placeholder
+                    }
                 }
-
-                // Parsear valores numéricos e datas de forma segura
-                var dataViagem = ParseDateSafe(dataCell);
-                var valorCotado = ParseDecimalSafe(valorCotadoCell);
-                var valorFinal = ParseDecimalSafe(valorFinalCell);
-                var horaInicio = ParseTimeOnlySafe(horaInicioCell);
-                var horaFim = ParseTimeOnlySafe(horaFimCell);
-                var distancia = (double)ParseDecimalSafe(distanciaCell);
-                var avaliacao = int.TryParse(avaliacaoStr, out var av) ? av : 0;
-
-                var viagem = new Viagem
+                catch (Exception ex)
                 {
-                    DataViagem = dataViagem,
-                    Origem = origem,
-                    Destino = destino,
-                    ValorCotado = valorCotado,
-                    ValorFinal = valorFinal,
-                    StatusOrigem = statusOrigem,
-                    HoraInicio = horaInicio,
-                    HoraFim = horaFim,
-                    DistanciaKm = distancia,
-                    Avaliacao = avaliacao,
-                    Motivo = motivo,
-                    IdViagemParceiro = idViagemParceiro,
-                    ColaboradorId = colaborador.Id,
-                    SetorId = setor.Id,
-                    ParceiroViagemId = parceiro.Id,
-                    StatusConferenciaGestor = "Pendente"
-                };
-
-                _db.Viagens.Add(viagem);
-                idsExistentes.Add(idViagemParceiro);
-                result.Importadas++;
+                    result.Erros.Add($"Linha {row} (pré-processamento): {ex.Message}");
+                }
             }
-            catch (Exception ex)
+
+            // Salvar entidades auxiliares em batch
+            if (novosSetores.Count > 0)
             {
-                result.Erros.Add($"Linha {row}: {ex.Message}");
+                _db.Setores.AddRange(novosSetores);
+                await _db.SaveChangesAsync();
+            }
+
+            if (novosParceiros.Count > 0)
+            {
+                _db.Parceiros.AddRange(novosParceiros);
+                await _db.SaveChangesAsync();
+            }
+
+            // Criar colaboradores (precisam do SetorId já persistido)
+            if (novosColaboradores.Count > 0)
+            {
+                var colabEntities = novosColaboradores.Select(c => new Colaborador
+                {
+                    Nome = c.nome,
+                    Cpf = c.cpf,
+                    SetorId = c.setor.Id
+                }).ToList();
+
+                _db.Colaboradores.AddRange(colabEntities);
+                await _db.SaveChangesAsync();
+
+                foreach (var colab in colabEntities)
+                    colaboradoresCache[colab.Cpf] = colab;
+            }
+
+            // Segunda passada: criar viagens em lotes
+            const int batchSize = 500;
+            int pendingCount = 0;
+
+            for (int row = 2; row <= lastRow; row++)
+            {
+                try
+                {
+                    var idViagemParceiro = ws.Cell(row, 16).GetString().Trim();
+
+                    if (string.IsNullOrWhiteSpace(idViagemParceiro) || idsExistentes.Contains(idViagemParceiro))
+                    {
+                        result.Ignoradas++;
+                        continue;
+                    }
+
+                    var dataCell = ws.Cell(row, 1);
+                    var cpf = ws.Cell(row, 3).GetString().Trim();
+                    var centroCusto = ws.Cell(row, 4).GetString().Trim();
+                    var origem = ws.Cell(row, 5).GetString().Trim();
+                    var destino = ws.Cell(row, 6).GetString().Trim();
+                    var parceiroNome = ws.Cell(row, 7).GetString().Trim();
+                    var valorCotadoCell = ws.Cell(row, 8);
+                    var valorFinalCell = ws.Cell(row, 9);
+                    var statusOrigem = ws.Cell(row, 10).GetString().Trim();
+                    var horaInicioCell = ws.Cell(row, 11);
+                    var horaFimCell = ws.Cell(row, 12);
+                    var distanciaCell = ws.Cell(row, 13);
+                    var avaliacaoStr = ws.Cell(row, 14).GetString().Trim();
+                    var motivo = ws.Cell(row, 15).GetString().Trim();
+
+                    var setor = setoresCache[centroCusto];
+                    var parceiro = parceirosCache[parceiroNome];
+                    var colaborador = colaboradoresCache[cpf];
+
+                    var dataViagem = ParseDateSafe(dataCell);
+                    var valorCotado = ParseDecimalSafe(valorCotadoCell);
+                    var valorFinal = ParseDecimalSafe(valorFinalCell);
+                    var horaInicio = ParseTimeOnlySafe(horaInicioCell);
+                    var horaFim = ParseTimeOnlySafe(horaFimCell);
+                    var distancia = (double)ParseDecimalSafe(distanciaCell);
+                    var avaliacao = int.TryParse(avaliacaoStr, out var av) ? av : 0;
+
+                    var viagem = new Viagem
+                    {
+                        DataViagem = dataViagem,
+                        Origem = origem,
+                        Destino = destino,
+                        ValorCotado = valorCotado,
+                        ValorFinal = valorFinal,
+                        StatusOrigem = statusOrigem,
+                        HoraInicio = horaInicio,
+                        HoraFim = horaFim,
+                        DistanciaKm = distancia,
+                        Avaliacao = avaliacao,
+                        Motivo = motivo,
+                        IdViagemParceiro = idViagemParceiro,
+                        ColaboradorId = colaborador.Id,
+                        SetorId = setor.Id,
+                        ParceiroViagemId = parceiro.Id,
+                        StatusConferenciaGestor = "Pendente"
+                    };
+
+                    _db.Viagens.Add(viagem);
+                    idsExistentes.Add(idViagemParceiro);
+                    result.Importadas++;
+                    pendingCount++;
+
+                    if (pendingCount >= batchSize)
+                    {
+                        await _db.SaveChangesAsync();
+                        pendingCount = 0;
+                    }
+                }
+                catch (Exception ex)
+                {
+                    result.Erros.Add($"Linha {row}: {ex.Message}");
+                }
+            }
+
+            // Salvar viagens restantes
+            if (pendingCount > 0)
+                await _db.SaveChangesAsync();
+
+            if (result.Importadas > 0)
+            {
+                var log = new ImportacaoLog
+                {
+                    DataImportacao = DateTime.Now,
+                    UsuarioId = usuarioId,
+                    QuantidadeImportada = result.Importadas
+                };
+                _db.ImportacoesLog.Add(log);
+                await _db.SaveChangesAsync();
             }
         }
-
-        if (result.Importadas > 0)
+        finally
         {
-            var log = new ImportacaoLog
-            {
-                DataImportacao = DateTime.Now,
-                UsuarioId = usuarioId,
-                QuantidadeImportada = result.Importadas
-            };
-            _db.ImportacoesLog.Add(log);
-            await _db.SaveChangesAsync();
+            _db.ChangeTracker.AutoDetectChangesEnabled = true;
         }
 
         return result;
@@ -171,7 +238,7 @@ public class ImportacaoService
         {
             return DateOnly.FromDateTime(dt);
         }
-        
+
         if (DateTime.TryParse(str, CultureInfo.InvariantCulture, DateTimeStyles.None, out var dtFallback))
         {
             return DateOnly.FromDateTime(dtFallback);
@@ -209,7 +276,7 @@ public class ImportacaoService
             {
                 return valInv;
             }
-            
+
             // Fallback para pt-BR
             if (decimal.TryParse(str, NumberStyles.Any, new CultureInfo("pt-BR"), out decimal valPt))
             {

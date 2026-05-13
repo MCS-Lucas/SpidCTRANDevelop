@@ -1,0 +1,11 @@
+@using Spid.Components.Shared
+
+<svg class="fa-icon @Class" width="@Size" height="@Size" viewBox="@IconPaths.GetViewBox(Name)" fill="currentColor" aria-hidden="true">
+    @((MarkupString)IconPaths.Get(Name))
+</svg>
+
+@code {
+    [Parameter] public string Name { get; set; } = "";
+    [Parameter] public string Class { get; set; } = "";
+    [Parameter] public int Size { get; set; } = 20;
+}

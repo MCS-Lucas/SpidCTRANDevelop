@@ -6,7 +6,7 @@
     <ImplicitUsings>enable</ImplicitUsings>
 
     <!-- IIS: mantém o modelo que funcionou no seu servidor -->
-  <AspNetCoreHostingModel>InProcess</AspNetCoreHostingModel>
+    <AspNetCoreHostingModel>OutOfProcess</AspNetCoreHostingModel>
 
     <!-- Framework-dependent: gera dotnet + Spid.dll -->
     <SelfContained>false</SelfContained>
@@ -15,8 +15,8 @@
     <IsTransformWebConfigDisabled>false</IsTransformWebConfigDisabled>
   </PropertyGroup>
 
-  <!-- Pacotes NuGet reais que o seu projeto usava -->
   <ItemGroup>
+    <PackageReference Include="AspNetCore.HealthChecks.SqlServer" Version="9.0.0" />
     <PackageReference Include="ClosedXML" Version="0.105.0" />
 
     <PackageReference Include="Microsoft.EntityFrameworkCore" Version="10.0.5" />

@@ -7,7 +7,7 @@
 
 <PageTitle>Status das Conferências — SPID</PageTitle>
 
-<h3 class="mb-4">📊 Status das Conferências Mensais</h3>
+<h3 class="mb-4"><Icon Name="clipboard-check" Size="24" Class="page-header-icon" /> Status das Conferências Mensais</h3>
 
 @if (!isAdmin)
 {
@@ -19,30 +19,24 @@ else
     <div class="card shadow-sm mb-4">
         <div class="card-body">
             <div class="row g-3 align-items-center">
-                <div class="col-md-auto">
+                <div class="col-md-2">
                     <label class="form-label small mb-1">Mês</label>
-                    <div class="d-flex align-items-center gap-1">
-                        <button class="btn btn-sm btn-outline-secondary" @onclick="MesAnterior" disabled="@(mesSelecionado <= 1)">&#9664;</button>
-                        <select class="form-select form-select-sm filter-select" @bind="mesSelecionado" @bind:after="Carregar">
-                            @for (int m = 1; m <= 12; m++)
-                            {
-                                var mes = m;
-                                <option value="@mes">@System.Globalization.CultureInfo.GetCultureInfo("pt-BR").DateTimeFormat.GetMonthName(mes)</option>
-                            }
-                        </select>
-                        <button class="btn btn-sm btn-outline-secondary" @onclick="MesSeguinte" disabled="@(mesSelecionado >= 12)">&#9654;</button>
-                    </div>
+                    <select class="form-select form-select-sm filter-select" @bind="mesSelecionado" @bind:after="Carregar">
+                        @for (int m = 1; m <= 12; m++)
+                        {
+                            var mes = m;
+                            <option value="@mes">@System.Globalization.CultureInfo.GetCultureInfo("pt-BR").DateTimeFormat.GetMonthName(mes)</option>
+                        }
+                    </select>
                 </div>
-                <div class="col-md-auto">
+                <div class="col-md-2">
                     <label class="form-label small mb-1">Ano</label>
-                    <div class="d-flex align-items-center gap-1">
-                        <select class="form-select form-select-sm filter-select" @bind="anoSelecionado" @bind:after="Carregar">
-                            @foreach (var a in anosDisponiveis)
-                            {
-                                <option value="@a">@a</option>
-                            }
-                        </select>
-                    </div>
+                    <select class="form-select form-select-sm filter-select" @bind="anoSelecionado" @bind:after="Carregar">
+                        @foreach (var a in anosDisponiveis)
+                        {
+                            <option value="@a">@a</option>
+                        }
+                    </select>
                 </div>
                 @if (setoresStatus is not null && setoresStatus.Count > 0)
                 {
@@ -113,7 +107,7 @@ else
                                 @if (s.Aprovadas > 0)
                                 {
                                     <button class="btn btn-sm btn-outline-success" @onclick="() => VerOK(s)">
-                                        ✅ @s.Aprovadas
+                                        <Icon Name="circle-check" Size="14" /> @s.Aprovadas
                                     </button>
                                 }
                                 else
@@ -125,7 +119,7 @@ else
                                 @if (s.Contestadas > 0)
                                 {
                                     <button class="btn btn-sm btn-outline-danger" @onclick="() => VerContestadas(s)">
-                                        ❌ @s.Contestadas
+                                        <Icon Name="circle-xmark" Size="14" /> @s.Contestadas
                                     </button>
                                 }
                                 else
@@ -146,7 +140,7 @@ else
                             <td class="text-center">
                                 @if (s.Confirmado)
                                 {
-                                    <span class="badge bg-success">✅ Confirmado</span>
+                                    <span class="badge bg-success"><Icon Name="circle-check" Size="12" /> Confirmado</span>
                                 }
                                 else if (s.Pendentes == 0 && s.TotalViagens > 0)
                                 {
@@ -154,7 +148,7 @@ else
                                 }
                                 else
                                 {
-                                    <span class="badge bg-warning text-dark">⏳ Pendente</span>
+                                    <span class="badge bg-warning text-dark"><Icon Name="clock" Size="12" /> Pendente</span>
                                 }
                             </td>
                             <td class="text-center">
@@ -183,7 +177,7 @@ else
             <div class="modal-content">
                 <div class="modal-header">
                     <h5 class="modal-title">
-                        @(detalheStatus == "OK" ? "✅ Viagens Aprovadas" : "❌ Viagens Contestadas")
+                        @(detalheStatus == "OK" ? "Viagens Aprovadas" : "Viagens Contestadas")
                         — @detalheSetorNome
                     </h5>
                     <button type="button" class="btn-close" @onclick="FecharDetalhes"></button>
@@ -279,7 +273,7 @@ else
     {
         if (!UserSession.IsAuthenticated)
         {
-            Nav.NavigateTo("/login");
+            Nav.NavigateTo("/login", forceLoad: true);
             return;
         }
 

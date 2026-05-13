@@ -93,3 +93,14 @@ window.destroyDashboardChart = function (canvasId) {
         delete _charts[canvasId];
     }
 };
+
+window.extendSession = async function () {
+    try {
+        const res = await fetch('/extend-session', { method: 'POST' });
+        if (!res.ok) return '';
+        const data = await res.json();
+        return data ? JSON.stringify(data) : '';
+    } catch {
+        return '';
+    }
+};

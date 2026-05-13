@@ -11,6 +11,8 @@ using Spid.Services;
 var builder = WebApplication.CreateBuilder(args);
 var isDevelopment = builder.Environment.IsDevelopment();
 var dataProtectionKeysPath = Path.Combine(builder.Environment.ContentRootPath, "keys");
+var useHttpsRedirection = builder.Configuration.GetValue("IIS:UseHttpsRedirection", false);
+var httpsPort = builder.Configuration.GetValue<int?>("IIS:HttpsPort");
 
 // Static Web Assets no ambiente Docker
 if (builder.Environment.IsEnvironment("Docker"))
@@ -18,8 +20,9 @@ if (builder.Environment.IsEnvironment("Docker"))
     StaticWebAssetsLoader.UseStaticWebAssets(builder.Environment, builder.Configuration);
 }
 
-var connectionString = builder.Configuration.GetConnectionString("DefaultConnection")
-    ?? throw new InvalidOperationException("A connection string 'DefaultConnection' não foi configurada.");
+var connectionString = Environment.GetEnvironmentVariable("SPID_CONNECTION_STRING")
+    ?? builder.Configuration.GetConnectionString("DefaultConnection")
+    ?? throw new InvalidOperationException("A connection string 'DefaultConnection' não foi configurada. Defina via variável de ambiente SPID_CONNECTION_STRING ou em appsettings.");
 
 // DbContext principal
 builder.Services.AddDbContext<AppDbContext>(options =>
@@ -37,7 +40,7 @@ builder.Services.AddRazorComponents()
 // ⭐ CONFIGURAÇÃO DE SIGNALR - CRÍTICO PARA PRODUÇÃO
 builder.Services.AddSignalR(options =>
 {
-    options.EnableDetailedErrors = true;  // Para debug de erros de conexão
+    options.EnableDetailedErrors = builder.Environment.IsDevelopment();
     options.KeepAliveInterval = TimeSpan.FromSeconds(15);
     options.ClientTimeoutInterval = TimeSpan.FromSeconds(30);
     options.HandshakeTimeout = TimeSpan.FromSeconds(15);
@@ -60,9 +63,9 @@ builder.Services.AddAuthentication("SpidCookie")
 
         options.Cookie.HttpOnly = true;
         options.Cookie.IsEssential = true;
-        options.Cookie.SecurePolicy = isDevelopment
-            ? CookieSecurePolicy.SameAsRequest
-            : CookieSecurePolicy.Always;
+        options.Cookie.SecurePolicy = useHttpsRedirection
+            ? CookieSecurePolicy.Always
+            : CookieSecurePolicy.SameAsRequest;
         options.Cookie.SameSite = SameSiteMode.Lax;
     });
 
@@ -75,16 +78,31 @@ builder.Services.AddDataProtection()
 builder.Services.AddAuthorization();
 builder.Services.AddCascadingAuthenticationState();
 
-// ⭐ CORS - Permitir requisições de diferentes origens (importante para APIs e proxies)
+// ⭐ CORS - Restritivo em produção, aberto apenas em desenvolvimento
+var allowedOrigins = builder.Configuration.GetSection("AllowedCorsOrigins").Get<string[]>() ?? [];
 builder.Services.AddCors(options =>
 {
-    options.AddPolicy("AllowAll", builder =>
-        builder
-            .AllowAnyOrigin()
-            .AllowAnyMethod()
-            .AllowAnyHeader()
-            .WithExposedHeaders("Content-Disposition", "X-Custom-Header"));
+    options.AddPolicy("SpidCors", policy =>
+    {
+        if (isDevelopment || allowedOrigins.Length == 0)
+        {
+            policy.AllowAnyOrigin()
+                  .AllowAnyMethod()
+                  .AllowAnyHeader();
+        }
+        else
+        {
+            policy.WithOrigins(allowedOrigins)
+                  .AllowAnyMethod()
+                  .AllowAnyHeader()
+                  .WithExposedHeaders("Content-Disposition");
+        }
+    });
 });
+
+// Health check para monitoramento
+builder.Services.AddHealthChecks()
+    .AddSqlServer(connectionString, name: "sqlserver");
 
 // Forwarded headers para Nginx/Reverse Proxies (opcional)
 builder.Services.Configure<ForwardedHeadersOptions>(options =>
@@ -101,9 +119,6 @@ builder.Services.Configure<ForwardedHeadersOptions>(options =>
 });
 
 // HTTPS opcional por configuração
-var useHttpsRedirection = builder.Configuration.GetValue("IIS:UseHttpsRedirection", false);
-var httpsPort = builder.Configuration.GetValue<int?>("IIS:HttpsPort");
-
 if (useHttpsRedirection && httpsPort.HasValue)
 {
     builder.Services.AddHttpsRedirection(options =>
@@ -182,7 +197,7 @@ app.UseWebSockets();
 app.UseRouting();
 
 // ⭐ CORS - IMPORTANTE para APIs e requisições cross-origin
-app.UseCors("AllowAll");
+app.UseCors("SpidCors");
 
 app.UseAuthentication();
 app.UseAuthorization();
@@ -267,6 +282,8 @@ app.MapPost("/extend-session", async (HttpContext ctx) =>
 
     return Results.Ok(new { ExpiresUtc = newExpiresUtc });
 }).DisableAntiforgery();
+
+app.MapHealthChecks("/health");
 
 var runDatabaseSetupOnBoot = builder.Configuration.GetValue("StartupTasks:RunDatabaseSetupOnBoot", false);
 
@@ -385,5 +402,6 @@ static async Task RunDatabaseSetupSafelyAsync(IServiceProvider rootServices, ILo
     catch (Exception ex)
     {
         logger.LogError(ex, "Falha ao executar migration/seed pós-startup. A aplicação continuará ativa.");
+    }
     }
 }

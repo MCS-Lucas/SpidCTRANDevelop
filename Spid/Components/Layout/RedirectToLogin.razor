@@ -30,7 +30,7 @@
 
         if (!UserSession.IsAuthenticated)
         {
-            Nav.NavigateTo("/login");
+            Nav.NavigateTo("/login", forceLoad: true);
         }
     }
 }

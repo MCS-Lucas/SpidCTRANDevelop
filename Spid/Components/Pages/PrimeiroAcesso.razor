@@ -120,7 +120,7 @@
 
         if (!UserSession.IsAuthenticated)
         {
-            Nav.NavigateTo("/login");
+            Nav.NavigateTo("/login", forceLoad: true);
             return;
         }
 
@@ -165,9 +165,9 @@
                 return;
             }
 
-            if (novaSenha.Length < 4)
+            if (novaSenha.Length < 8)
             {
-                erro = "A senha deve ter no mínimo 4 caracteres.";
+                erro = "A senha deve ter no mínimo 8 caracteres.";
                 return;
             }
 
