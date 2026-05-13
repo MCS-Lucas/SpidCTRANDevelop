@@ -29,9 +29,8 @@ else
         <div class="d-flex align-items-center gap-2 flex-wrap">
             @if (setores.Count > 0)
             {
-                <select class="setor-select" @bind="setorSelecionadoId" @bind:after="CarregarDados">
-                    <option value="">Todos os Setores</option>
-                    @foreach (var s in setores)
+                <div class="d-flex align-items-center gap-1">
+                    @if (isAdmin)
                     {
                         <button class="filter-btn" @onclick="SetorAnterior" disabled="@(!TemSetorAnterior())">&#9664;</button>
                     }

@@ -403,5 +403,4 @@ static async Task RunDatabaseSetupSafelyAsync(IServiceProvider rootServices, ILo
     {
         logger.LogError(ex, "Falha ao executar migration/seed pós-startup. A aplicação continuará ativa.");
     }
-    }
 }
