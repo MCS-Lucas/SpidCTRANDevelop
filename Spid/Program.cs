@@ -205,6 +205,102 @@ app.UseAntiforgery();
 
 app.MapStaticAssets();
 
+// Login precisa ser HTML/POST HTTP puro, fora do circuito Blazor/SignalR,
+// para que SignInAsync consiga gravar o cookie de autenticação na resposta.
+app.MapGet("/login", (HttpContext ctx) =>
+{
+    var erro = ctx.Request.Query["erro"].ToString();
+    var erroHtml = erro switch
+    {
+        "campos" => """<div class="alert alert-danger" role="alert">Preencha o ponto e a senha.</div>""",
+        "usuario" => """<div class="alert alert-danger" role="alert">Ponto não encontrado ou usuário inativo.</div>""",
+        "senha" => """<div class="alert alert-danger" role="alert">Senha incorreta.</div>""",
+        _ => ""
+    };
+
+    const string htmlTemplate = """
+    <!DOCTYPE html>
+    <html lang="pt-BR">
+    <head>
+        <meta charset="utf-8" />
+        <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+        <title>Login - SPID</title>
+        <link rel="stylesheet" href="/bootstrap.min.css" />
+        <link rel="icon" type="image/png" href="/spid_web.png" />
+        <style>
+            body {
+                background: linear-gradient(135deg, #1a2340 0%, #1a73e8 100%);
+                min-height: 100vh;
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                margin: 0;
+                padding: 1rem;
+            }
+
+            .login-card {
+                background: #fff;
+                border-radius: 16px;
+                padding: 2.5rem;
+                box-shadow: 0 8px 32px rgba(0, 0, 0, 0.2);
+                width: 100%;
+                max-width: 400px;
+            }
+
+            .btn-primary {
+                border: 0;
+                border-radius: 8px;
+                padding: 0.75rem 1rem;
+                font-weight: 700;
+                color: #fff;
+                background: linear-gradient(135deg, #1a73e8, #1557ad);
+                box-shadow: 0 3px 10px rgba(26, 115, 232, 0.28);
+                transition: transform 0.16s ease, box-shadow 0.16s ease, background 0.16s ease;
+            }
+
+            .btn-primary:hover,
+            .btn-primary:focus {
+                color: #fff;
+                background: linear-gradient(135deg, #1766ce, #104a96);
+                box-shadow: 0 6px 16px rgba(26, 115, 232, 0.34);
+                transform: translateY(-1px);
+            }
+
+            .btn-primary:active {
+                transform: translateY(0);
+                box-shadow: 0 3px 10px rgba(26, 115, 232, 0.28);
+            }
+        </style>
+    </head>
+    <body>
+        <main class="login-card">
+            <div class="text-center mb-3">
+                <img src="/spid_web.png" alt="SPID Logo" style="max-width: 180px; width: 100%;" />
+            </div>
+            <h2 class="text-center mb-2">SPID</h2>
+            <p class="text-center text-muted mb-4">Sistema de Gestão de Viagens</p>
+            {{ERRO_HTML}}
+            <form method="post" action="/do-login" autocomplete="on">
+                <div class="mb-3">
+                    <label for="ponto" class="form-label">Ponto</label>
+                    <input id="ponto" name="ponto" type="text" class="form-control" placeholder="Ex: 0001" autocomplete="username" required autofocus />
+                </div>
+                <div class="mb-3">
+                    <label for="senha" class="form-label">Senha</label>
+                    <input id="senha" name="senha" type="password" class="form-control" placeholder="Digite sua senha" autocomplete="current-password" required />
+                </div>
+                <br /><br />
+                <button type="submit" class="btn btn-primary w-100">Entrar</button>
+            </form>
+        </main>
+    </body>
+    </html>
+    """;
+
+    ctx.Response.Headers.CacheControl = "no-store";
+    return Results.Content(htmlTemplate.Replace("{{ERRO_HTML}}", erroHtml), "text/html; charset=utf-8");
+}).AllowAnonymous();
+
 app.MapRazorComponents<App>()
     .AddInteractiveServerRenderMode();
 

@@ -60,12 +60,17 @@ else
                             </span>
                         </td>
                         <td class="text-center">
-                            <a href="/usuarios/editar/@u.Id" class="btn btn-sm btn-outline-primary me-1">
-                                <Icon Name="pen-to-square" Size="14" /> Editar
-                            </a>
-                            <button class="btn btn-sm btn-outline-danger" @onclick="() => ConfirmarExclusao(u)">
-                                <Icon Name="trash" Size="14" /> Excluir
-                            </button>
+                            <div class="user-action-group">
+                                <a href="/usuarios/editar/@u.Id" class="btn btn-sm btn-user-action btn-user-edit" title="Editar usuário">
+                                    <Icon Name="user-pen" Size="15" Class="icon-duotone action-icon" /> Editar
+                                </a>
+                                <button class="btn btn-sm btn-user-action btn-user-delete"
+                                        disabled="@(u.Id == UserSession.UsuarioLogado?.Id)"
+                                        title="@(u.Id == UserSession.UsuarioLogado?.Id ? "Não é possível excluir o usuário logado" : "Excluir usuário")"
+                                        @onclick="() => ConfirmarExclusao(u)">
+                                    <Icon Name="trash" Size="15" Class="icon-duotone action-icon" /> Excluir
+                                </button>
+                            </div>
                         </td>
                     </tr>
                 }
