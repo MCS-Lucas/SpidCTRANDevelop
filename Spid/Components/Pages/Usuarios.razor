@@ -1,6 +1,10 @@
 @page "/usuarios"
+@namespace Spid.Components.Pages
 @using Microsoft.EntityFrameworkCore
+@using Microsoft.AspNetCore.Components.Web
 @using Spid.Data
+@using Spid.Services
+@using Spid.Components.Shared
 @inject AppDbContext Db
 @inject UserSession UserSession
 @inject NavigationManager Nav
@@ -8,7 +12,9 @@
 <PageTitle>Gerenciar Usuários — SPID</PageTitle>
 
 <div class="d-flex justify-content-between align-items-center mb-4">
-    <h3><Icon Name="users-gear" Size="24" Class="page-header-icon" /> Gerenciar Usuários</h3>
+    <h3>
+        <Icon Name="users-gear" Size="24" Class="page-header-icon" /> Gerenciar Usuários
+    </h3>
     <a href="/usuarios/novo" class="btn btn-primary">
         <Icon Name="user-plus" Size="14" /> Novo Usuário
     </a>
@@ -18,93 +24,100 @@
 {
     <div class="alert alert-warning">Você não tem permissão para acessar esta página.</div>
 }
-else if (usuarios is null)
+else if (todosUsuarios is null)
 {
     <p class="text-muted">Carregando...</p>
 }
-else if (usuarios.Count == 0)
+else if (todosUsuarios.Count == 0)
 {
     <div class="alert alert-info">Nenhum usuário cadastrado.</div>
 }
 else
 {
-    <div class="table-responsive">
-        <table class="table table-hover align-middle">
-            <thead class="table-dark">
-                <tr>
-                    <th class="text-center">Nome</th>
-                    <th class="text-center">Ponto</th>
-                    <th class="text-center">E-mail</th>
-                    <th class="text-center">Perfil</th>
-                    <th class="text-center">Setor</th>
-                    <th class="text-center">Status</th>
-                    <th class="text-center">Ações</th>
-                </tr>
-            </thead>
-            <tbody>
-                @foreach (var u in usuarios)
-                {
-                    <tr class="@(u.Ativo ? "" : "table-secondary")">
-                        <td class="text-center">@u.Nome</td>
-                        <td class="text-center"><code>@u.Ponto</code></td>
-                        <td class="text-center">@u.Email</td>
-                        <td class="text-center">
-                            <span class="badge @(u.Perfil == "Admin" ? "bg-danger" : "bg-primary")">
-                                @u.Perfil
-                            </span>
-                        </td>
-                        <td class="text-center">@(u.Setor?.Nome ?? "—")</td>
-                        <td class="text-center">
-                            <span class="badge @(u.Ativo ? "bg-success" : "bg-secondary")">
-                                @(u.Ativo ? "Ativo" : "Inativo")
-                            </span>
-                        </td>
-                        <td class="text-center">
-                            <div class="user-action-group">
-                                <a href="/usuarios/editar/@u.Id" class="btn btn-sm btn-user-action btn-user-edit" title="Editar usuário">
-                                    <Icon Name="user-pen" Size="15" Class="icon-duotone action-icon" /> Editar
-                                </a>
-                                <button class="btn btn-sm btn-user-action btn-user-delete"
-                                        disabled="@(u.Id == UserSession.UsuarioLogado?.Id)"
-                                        title="@(u.Id == UserSession.UsuarioLogado?.Id ? "Não é possível excluir o usuário logado" : "Excluir usuário")"
-                                        @onclick="() => ConfirmarExclusao(u)">
-                                    <Icon Name="trash" Size="15" Class="icon-duotone action-icon" /> Excluir
-                                </button>
-                            </div>
-                        </td>
-                    </tr>
-                }
-            </tbody>
-        </table>
-    </div>
-}
-
-@if (usuarioParaExcluir is not null)
-{
-    <div class="modal d-block" tabindex="-1" style="background-color: rgba(0,0,0,0.5);">
-        <div class="modal-dialog modal-dialog-centered">
-            <div class="modal-content">
-                <div class="modal-header">
-                    <h5 class="modal-title">Confirmar Exclusão</h5>
-                    <button type="button" class="btn-close" @onclick="CancelarExclusao"></button>
-                </div>
-                <div class="modal-body">
-                    <p>Tem certeza que deseja excluir o usuário <strong>@usuarioParaExcluir.Nome</strong> (Ponto:
-                        @usuarioParaExcluir.Ponto)?</p>
-                    </div>
-                    <div class="modal-footer">
-                        <button class="btn btn-secondary" @onclick="CancelarExclusao">Cancelar</button>
-                        <button class="btn btn-danger" @onclick="ExecutarExclusao">Excluir</button>
-                    </div>
-                </div>
+    <!-- Filtros -->
+    <div class="card shadow-sm mb-4">
+        <div class="card-body py-2 d-flex align-items-center gap-3 flex-wrap">
+            <div class="d-flex align-items-center gap-2">
+                <label class="form-label mb-0 small fw-bold text-muted">Filtrar por Perfil:</label>
+                <select class="form-select form-select-sm" style="max-width: 280px; border-radius: 6px;" 
+                        @bind="perfilSelecionado" @bind:after="AplicarFiltrosEOrdenacao">
+                    <option value="Todos">Todos os Perfis</option>
+                    <option value="Admin">Administradores</option>
+                    <option value="Gestores">Gestores (Principal e Secundário)</option>
+                    <option value="Gestor Principal">Gestor Principal</option>
+                    <option value="Gestor Secundário">Gestor Secundário</option>
+                </select>
+            </div>
+            
+            <div class="ms-auto">
+                <span class="badge bg-light text-dark border small py-2 px-3">
+                    Exibindo <strong>@(usuarios?.Count ?? 0)</strong> de <strong>@(todosUsuarios?.Count ?? 0)</strong> usuários
+                </span>
             </div>
         </div>
+    </div>
+
+    @if (usuarios is null || usuarios.Count == 0)
+    {
+        <div class="alert alert-info">Nenhum usuário encontrado com os filtros selecionados.</div>
     }
+    else
+    {
+        <div class="table-responsive">
+            <table class="table table-hover align-middle">
+                <thead class="table-dark">
+                    <tr>
+                        <th class="text-center" role="button" style="cursor: pointer; user-select: none;" @onclick="AlternarOrdemNome">
+                            Nome @(ordenarNomeAsc ? "▲" : "▼")
+                        </th>
+                        <th class="text-center">Ponto</th>
+                        <th class="text-center">E-mail</th>
+                        <th class="text-center">Perfil</th>
+                        <th class="text-center">Setor</th>
+                        <th class="text-center">Status</th>
+                        <th class="text-center">Ações</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach (var u in usuarios)
+                    {
+                        <tr class="@(u.Ativo ? "" : "table-secondary")">
+                            <td class="text-center">@u.Nome</td>
+                            <td class="text-center"><code>@u.Ponto</code></td>
+                            <td class="text-center">@u.Email</td>
+                            <td class="text-center">
+                                <span class="badge @(u.Perfil == "Admin" ? "bg-danger" : "bg-primary")">
+                                    @u.Perfil
+                                </span>
+                            </td>
+                            <td class="text-center">@(u.Setor?.Nome ?? "—")</td>
+                            <td class="text-center">
+                                <span class="badge @(u.Ativo ? "bg-success" : "bg-secondary")">
+                                    @(u.Ativo ? "Ativo" : "Inativo")
+                                </span>
+                            </td>
+                            <td class="text-center">
+                                <div class="user-action-group">
+                                    <a href="/usuarios/editar/@u.Id" class="btn btn-sm btn-user-action btn-user-edit"
+                                       title="Editar usuário">
+                                        <Icon Name="user-pen" Size="15" Class="icon-duotone action-icon" /> Editar
+                                    </a>
+                                </div>
+                            </td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        </div>
+    }
+}
 
 @code {
+    private List<Usuario>? todosUsuarios;
     private List<Usuario>? usuarios;
     private bool isAdmin;
-    private Usuario? usuarioParaExcluir;
+    private string perfilSelecionado = "Todos";
+    private bool ordenarNomeAsc = true;
 
     protected override async Task OnInitializedAsync()
     {
@@ -122,36 +135,43 @@ else
 
     private async Task CarregarUsuarios()
     {
-        usuarios = await Db.Usuarios
+        todosUsuarios = await Db.Usuarios
             .Include(u => u.Setor)
-            .OrderBy(u => u.Nome)
             .ToListAsync();
+
+        AplicarFiltrosEOrdenacao();
     }
 
-    private void ConfirmarExclusao(Usuario u)
+    private void AplicarFiltrosEOrdenacao()
     {
-        usuarioParaExcluir = u;
-    }
+        if (todosUsuarios is null) return;
 
-    private void CancelarExclusao()
-    {
-        usuarioParaExcluir = null;
-    }
+        var query = todosUsuarios.AsEnumerable();
 
-    private async Task ExecutarExclusao()
-    {
-        if (usuarioParaExcluir is null) return;
-
-        // Não permitir excluir a si mesmo
-        if (usuarioParaExcluir.Id == UserSession.UsuarioLogado!.Id)
+        // 1. Filtrar por Perfil
+        if (perfilSelecionado != "Todos")
         {
-            usuarioParaExcluir = null;
-            return;
+            if (perfilSelecionado == "Gestores")
+            {
+                query = query.Where(u => u.Perfil == "Gestor Principal" || u.Perfil == "Gestor Secundário");
+            }
+            else
+            {
+                query = query.Where(u => u.Perfil == perfilSelecionado);
+            }
         }
 
-        usuarioParaExcluir.Ativo = false;
-        await Db.SaveChangesAsync();
-        usuarioParaExcluir = null;
-        await CarregarUsuarios();
+        // 2. Ordenar por Nome
+        query = ordenarNomeAsc 
+            ? query.OrderBy(u => u.Nome, StringComparer.CurrentCultureIgnoreCase) 
+            : query.OrderByDescending(u => u.Nome, StringComparer.CurrentCultureIgnoreCase);
+
+        usuarios = query.ToList();
+    }
+
+    private void AlternarOrdemNome()
+    {
+        ordenarNomeAsc = !ordenarNomeAsc;
+        AplicarFiltrosEOrdenacao();
     }
 }

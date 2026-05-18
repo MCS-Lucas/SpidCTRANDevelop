@@ -8,7 +8,13 @@
 
 <PageTitle>@(editando ? "Editar" : "Novo") Usuário — SPID</PageTitle>
 
-<h3 class="mb-4">@if (editando) { <Icon Name="user-pen" Size="24" Class="page-header-icon" /> <text>Editar Usuário</text> } else { <Icon Name="user-plus" Size="24" Class="page-header-icon" /> <text>Novo Usuário</text> }</h3>
+<h3 class="mb-4">@if (editando) {
+    <Icon Name="user-pen" Size="24" Class="page-header-icon" /> <text>Editar Usuário</text>
+} else
+{
+    <Icon Name="user-plus" Size="24" Class="page-header-icon" /> <text>Novo Usuário</text>
+}
+</h3>
 
 @if (!isAdmin)
 {
@@ -100,9 +106,18 @@ else
                         </div>
                     }
 
-                    <div class="mb-3 form-check">
-                        <InputCheckbox @bind-Value="ativo" class="form-check-input" id="ativoCheck" />
-                        <label class="form-check-label" for="ativoCheck">Usuário ativo</label>
+                    <div class="mb-3 d-flex justify-content-between align-items-center">
+                        <div class="form-check">
+                            <InputCheckbox @bind-Value="ativo" class="form-check-input" id="ativoCheck" />
+                            <label class="form-check-label" for="ativoCheck">Usuário ativo</label>
+                        </div>
+                        @if (editando && IdUsuario != UserSession.UsuarioLogado?.Id)
+                        {
+                            <button type="button" class="btn btn-outline-danger btn-sm"
+                                    @onclick="() => exibindoConfirmacaoExclusao = true">
+                                <Icon Name="trash" Size="14" /> Excluir Usuário
+                            </button>
+                        }
                     </div>
 
                     <div class="d-flex gap-2">
@@ -120,6 +135,39 @@ else
         </div>
     }
 
+    @if (exibindoConfirmacaoExclusao)
+    {
+        <div class="modal d-block" tabindex="-1" style="background-color: rgba(0,0,0,0.5); z-index: 1050;">
+            <div class="modal-dialog modal-dialog-centered">
+                <div class="modal-content">
+                    <div class="modal-header bg-danger text-white">
+                        <h5 class="modal-title">Confirmar Exclusão Permanente</h5>
+                        <button type="button" class="btn-close btn-close-white"
+                                @onclick="() => exibindoConfirmacaoExclusao = false"></button>
+                    </div>
+                    <div class="modal-body">
+                        <p>Tem certeza que deseja <strong>excluir permanentemente</strong> o usuário <strong>@nome</strong> do
+                            sistema?</p>
+                            <p class="text-danger small">
+                                <Icon Name="triangle-exclamation" /> Esta ação não pode ser desfeita e pode falhar se o usuário
+                                possuir registros vinculados (viagens, logs, etc).
+                            </p>
+                        </div>
+                        <div class="modal-footer">
+                            <button class="btn btn-secondary" @onclick="() => exibindoConfirmacaoExclusao = false">Cancelar</button>
+                            <button class="btn btn-danger" @onclick="ExcluirUsuario" disabled="@salvando">
+                                @if (salvando)
+                                {
+                                    <span class="spinner-border spinner-border-sm me-2"></span>
+                                }
+                                Confirmar Exclusão
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        }
+
 @code {
     [Parameter] public int IdUsuario { get; set; }
 
@@ -128,6 +176,7 @@ else
     private bool salvando;
     private string? erro;
     private string? sucesso;
+    private bool exibindoConfirmacaoExclusao;
 
     private string nome = "";
     private string email = "";
@@ -259,6 +308,30 @@ else
         catch (Exception ex)
         {
             erro = $"Erro ao salvar: {ex.Message}";
+        }
+        finally
+        {
+            salvando = false;
+        }
+    }
+
+    private async Task ExcluirUsuario()
+    {
+        if (usuarioEditando is null) return;
+
+        salvando = true;
+        erro = null;
+
+        try
+        {
+            Db.Usuarios.Remove(usuarioEditando);
+            await Db.SaveChangesAsync();
+            Nav.NavigateTo("/usuarios");
+        }
+        catch (Exception)
+        {
+            erro = "Não foi possível excluir o usuário. Ele pode ter registros vinculados no sistema. Considere apenas inativá-lo.";
+            exibindoConfirmacaoExclusao = false;
         }
         finally
         {
