@@ -1,13 +1,19 @@
 @page "/status-conferencias"
+@namespace Spid.Components.Pages
 @using Microsoft.EntityFrameworkCore
+@using Microsoft.AspNetCore.Components.Web
 @using Spid.Data
+@using Spid.Services
+@using Spid.Components.Shared
 @inject AppDbContext Db
 @inject UserSession UserSession
 @inject NavigationManager Nav
 
 <PageTitle>Status das Conferências — SPID</PageTitle>
 
-<h3 class="mb-4"><Icon Name="clipboard-check" Size="24" Class="page-header-icon" /> Status das Conferências Mensais</h3>
+<h3 class="mb-4">
+    <Icon Name="clipboard-check" Size="24" Class="page-header-icon" /> Status das Conferências Mensais
+</h3>
 
 @if (!isAdmin)
 {
@@ -17,47 +23,53 @@ else
 {
     <!-- Filtro e Resumo -->
     <div class="card shadow-sm mb-4">
-        <div class="card-body">
-            <div class="row g-3 align-items-center">
-                <div class="col-md-2">
-                    <label class="form-label small mb-1">Mês</label>
-                    <select class="form-select form-select-sm filter-select" @bind="mesSelecionado" @bind:after="Carregar">
+        <div class="card-body d-flex align-items-center gap-3 flex-wrap">
+            <!-- Filtros -->
+            <div class="flex-shrink-0">
+                <label class="form-label small mb-1">Mês</label>
+                <div class="d-flex align-items-center gap-1">
+                    <button class="filter-btn" @onclick="MesAnterior" disabled="@(mesSelecionado <= 1)">&#9664;</button>
+                    <select class="filter-select" @bind="mesSelecionado" @bind:after="Carregar">
                         @for (int m = 1; m <= 12; m++)
                         {
                             var mes = m;
                             <option value="@mes">@System.Globalization.CultureInfo.GetCultureInfo("pt-BR").DateTimeFormat.GetMonthName(mes)</option>
                         }
                     </select>
+                    <button class="filter-btn" @onclick="MesSeguinte" disabled="@(mesSelecionado >= 12)">&#9654;</button>
                 </div>
-                <div class="col-md-2">
-                    <label class="form-label small mb-1">Ano</label>
-                    <select class="form-select form-select-sm filter-select" @bind="anoSelecionado" @bind:after="Carregar">
-                        @foreach (var a in anosDisponiveis)
-                        {
-                            <option value="@a">@a</option>
-                        }
-                    </select>
-                </div>
-                @if (setoresStatus is not null && setoresStatus.Count > 0)
-                {
-                    <div class="col-md-4">
-                        <div class="card text-center border-success">
+            </div>
+            <div class="flex-shrink-0 d-flex flex-column">
+                <label class="form-label small mb-1">Ano</label>
+                <select class="filter-select" @bind="anoSelecionado" @bind:after="Carregar">
+                    @foreach (var a in anosDisponiveis)
+                    {
+                        <option value="@a">@a</option>
+                    }
+                </select>
+            </div>
+            <!-- Cards de resumo na mesma linha -->
+            @if (setoresStatus is not null && setoresStatus.Count > 0)
+            {
+                <div class="flex-grow-1 d-flex gap-3">
+                    <div class="flex-fill">
+                        <div class="card text-center border-success h-100">
                             <div class="card-body py-2">
-                                <div class="fs-3 fw-bold text-success">@setoresStatus.Count(s => s.Confirmado)</div>
+                                <div class="fs-3 fw-bold text-success">@setoresStatus.Count(s => s.Confirmado && s.Pendentes == 0)</div>
                                 <small class="text-muted">Setores Confirmados</small>
                             </div>
                         </div>
                     </div>
-                    <div class="col-md-4">
-                        <div class="card text-center border-warning">
+                    <div class="flex-fill">
+                        <div class="card text-center border-warning h-100">
                             <div class="card-body py-2">
-                                <div class="fs-3 fw-bold text-warning">@setoresStatus.Count(s => !s.Confirmado)</div>
+                                <div class="fs-3 fw-bold text-warning">@setoresStatus.Count(s => !s.Confirmado || s.Pendentes > 0)</div>
                                 <small class="text-muted">Setores Pendentes</small>
                             </div>
                         </div>
                     </div>
-                }
-            </div>
+                </div>
+            }
         </div>
     </div>
 
@@ -92,11 +104,24 @@ else
                     {
                         <tr>
                             <td class="text-center"><strong>@s.SetorNome</strong></td>
-                            <td class="text-center">@s.TotalViagens</td>
+                            <td class="text-center">
+                                @if (s.TotalViagens > 0)
+                                {
+                                    <button class="btn btn-sm btn-outline-primary" @onclick="() => VerTodas(s)">
+                                        <Icon Name="list" Size="14" /> @s.TotalViagens
+                                    </button>
+                                }
+                                else
+                                {
+                                    <span class="text-muted">0</span>
+                                }
+                            </td>
                             <td class="text-center">
                                 @if (s.Pendentes > 0)
                                 {
-                                    <span class="badge bg-warning text-dark">@s.Pendentes</span>
+                                    <button class="btn btn-sm btn-outline-warning text-dark" @onclick="() => VerPendentes(s)">
+                                        <Icon Name="clock" Size="14" /> @s.Pendentes
+                                    </button>
                                 }
                                 else
                                 {
@@ -138,9 +163,17 @@ else
                                 }
                             </td>
                             <td class="text-center">
-                                @if (s.Confirmado)
+                                @if (s.Confirmado && s.Pendentes > 0)
                                 {
-                                    <span class="badge bg-success"><Icon Name="circle-check" Size="12" /> Confirmado</span>
+                                    <span class="badge bg-danger">
+                                        <Icon Name="triangle-exclamation" Size="12" /> Novas Pendências
+                                    </span>
+                                }
+                                else if (s.Confirmado)
+                                {
+                                    <span class="badge bg-success">
+                                        <Icon Name="circle-check" Size="12" /> Confirmado
+                                    </span>
                                 }
                                 else if (s.Pendentes == 0 && s.TotalViagens > 0)
                                 {
@@ -148,7 +181,9 @@ else
                                 }
                                 else
                                 {
-                                    <span class="badge bg-warning text-dark"><Icon Name="clock" Size="12" /> Pendente</span>
+                                    <span class="badge bg-warning text-dark">
+                                        <Icon Name="clock" Size="12" /> Pendente
+                                    </span>
                                 }
                             </td>
                             <td class="text-center">
@@ -177,7 +212,13 @@ else
             <div class="modal-content">
                 <div class="modal-header">
                     <h5 class="modal-title">
-                        @(detalheStatus == "OK" ? "Viagens Aprovadas" : "Viagens Contestadas")
+                        @(detalheStatus switch
+                        {
+                            "OK" => "Viagens Aprovadas",
+                            "Contestada" => "Viagens Contestadas",
+                            "Pendente" => "Viagens Pendentes",
+                            _ => "Todas as Viagens"
+                        })
                         — @detalheSetorNome
                     </h5>
                     <button type="button" class="btn-close" @onclick="FecharDetalhes"></button>
@@ -201,7 +242,11 @@ else
                                         <th class="text-end">V. Cotado</th>
                                         <th class="text-end">V. Final</th>
                                         <th>Motivo da Viagem</th>
-                                        @if (detalheStatus == "Contestada")
+                                        @if (detalheStatus == "Todas")
+                                        {
+                                            <th>Status</th>
+                                        }
+                                        @if (detalheStatus == "Contestada" || detalheStatus == "Todas")
                                         {
                                             <th>Motivo Contestação</th>
                                         }
@@ -219,9 +264,35 @@ else
                                             <td class="text-end">R$ @v.ValorCotado.ToString("N2")</td>
                                             <td class="text-end">R$ @v.ValorFinal.ToString("N2")</td>
                                             <td>@v.Motivo</td>
-                                            @if (detalheStatus == "Contestada")
+                                            @if (detalheStatus == "Todas")
                                             {
-                                                <td><span class="text-danger">@v.MotivoContestacao</span></td>
+                                                <td>
+                                                    @if (v.StatusConferenciaGestor == "OK")
+                                                    {
+                                                        <span class="badge bg-success">OK</span>
+                                                    }
+                                                    else if (v.StatusConferenciaGestor == "Contestada")
+                                                    {
+                                                        <span class="badge bg-danger">Contestada</span>
+                                                    }
+                                                    else
+                                                    {
+                                                        <span class="badge bg-warning text-dark">Pendente</span>
+                                                    }
+                                                </td>
+                                            }
+                                            @if (detalheStatus == "Contestada" || detalheStatus == "Todas")
+                                            {
+                                                <td>
+                                                    @if (v.StatusConferenciaGestor == "Contestada")
+                                                    {
+                                                        <span class="text-danger">@v.MotivoContestacao</span>
+                                                    }
+                                                    else
+                                                    {
+                                                        <span class="text-muted">—</span>
+                                                    }
+                                                </td>
                                             }
                                         </tr>
                                     }
@@ -279,7 +350,7 @@ else
 
         isAdmin = UserSession.UsuarioLogado!.Perfil == "Admin";
         if (!isAdmin) return;
-        
+
         anosDisponiveis = await Db.Viagens.Select(v => v.DataViagem.Year).Distinct().OrderByDescending(y => y).ToListAsync();
         if (anosDisponiveis.Count == 0 || !anosDisponiveis.Contains(DateTime.Now.Year))
             anosDisponiveis.Insert(0, DateTime.Now.Year);
@@ -355,15 +426,25 @@ else
     {
         if (setoresStatus is null) return;
 
+        int GetStatusUrgencia(SetorStatusDto s)
+        {
+            if (s.Confirmado && s.Pendentes > 0) return 1;
+            if (s.Confirmado) return 3;
+            if (s.Pendentes == 0 && s.TotalViagens > 0) return 2;
+            return 0;
+        }
+
         setoresStatus = ordenarStatusAsc
-            ? setoresStatus.OrderBy(s => s.Confirmado).ThenBy(s => s.SetorNome).ToList()
-            : setoresStatus.OrderByDescending(s => s.Confirmado).ThenBy(s => s.SetorNome).ToList();
+            ? setoresStatus.OrderBy(GetStatusUrgencia).ThenBy(s => s.SetorNome).ToList()
+            : setoresStatus.OrderByDescending(GetStatusUrgencia).ThenBy(s => s.SetorNome).ToList();
     }
 
 
 
     private Task VerOK(SetorStatusDto setor) => VerDetalhes(setor, "OK");
     private Task VerContestadas(SetorStatusDto setor) => VerDetalhes(setor, "Contestada");
+    private Task VerPendentes(SetorStatusDto setor) => VerDetalhes(setor, "Pendente");
+    private Task VerTodas(SetorStatusDto setor) => VerDetalhes(setor, "Todas");
 
     private async Task VerDetalhes(SetorStatusDto setor, string status)
     {
@@ -373,12 +454,18 @@ else
         var mesInicio = new DateOnly(anoSelecionado, mesSelecionado, 1);
         var mesFim = mesInicio.AddMonths(1);
 
-        detalheViagens = await Db.Viagens
+        var query = Db.Viagens
             .Include(v => v.Colaborador)
             .Include(v => v.Parceiro)
             .Where(v => v.SetorId == setor.SetorId
-                     && v.DataViagem >= mesInicio && v.DataViagem < mesFim
-                     && v.StatusConferenciaGestor == status)
+                     && v.DataViagem >= mesInicio && v.DataViagem < mesFim);
+
+        if (status != "Todas")
+        {
+            query = query.Where(v => v.StatusConferenciaGestor == status);
+        }
+
+        detalheViagens = await query
             .OrderByDescending(v => v.DataViagem)
             .ToListAsync();
     }
