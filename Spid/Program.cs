@@ -280,7 +280,8 @@ app.MapGet("/login", (HttpContext ctx) =>
             <h2 class="text-center mb-2">SPID</h2>
             <p class="text-center text-muted mb-4">Sistema de Gestão de Viagens</p>
             {{ERRO_HTML}}
-            <form method="post" action="/do-login" autocomplete="on">
+            <form method="post" action="/do-login" autocomplete="on" data-enhance="false"
+                  onkeydown="if (event.key === 'Enter' && event.target.tagName !== 'TEXTAREA') { event.preventDefault(); if (this.requestSubmit) { this.requestSubmit(); } else { this.submit(); } }">
                 <div class="mb-3">
                     <label for="ponto" class="form-label">Ponto</label>
                     <input id="ponto" name="ponto" type="text" class="form-control" placeholder="Ex: 0001" autocomplete="username" required autofocus />
@@ -291,6 +292,10 @@ app.MapGet("/login", (HttpContext ctx) =>
                 </div>
                 <br /><br />
                 <button type="submit" class="btn btn-primary w-100">Entrar</button>
+
+                <br /><br />
+                <!-- TODO: Implementar rota e página para alteração de senha do usuário -->
+                <a href="" class="text-center mb-2 d-block">Alterar Senha</a>
             </form>
         </main>
     </body>

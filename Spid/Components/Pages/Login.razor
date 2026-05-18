@@ -31,7 +31,8 @@
             NÃO usar EditForm + SignInAsync aqui — o Blazor roda via WebSocket e
             não permite gravar cookies (cabeçalhos HTTP já foram enviados).
         *@
-        <form method="post" action="/do-login" data-enhance="false">
+        <form method="post" action="/do-login" data-enhance="false"
+              onkeydown="if (event.key === 'Enter' && event.target.tagName !== 'TEXTAREA') { event.preventDefault(); if (this.requestSubmit) { this.requestSubmit(); } else { this.submit(); } }">
             <div class="mb-3">
                 <label for="ponto" class="form-label">Ponto</label>
                 <input id="ponto" name="ponto" type="text" class="form-control" placeholder="Ex: 0001" required />
