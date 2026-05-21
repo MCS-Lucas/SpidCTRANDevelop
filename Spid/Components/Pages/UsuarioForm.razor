@@ -77,7 +77,7 @@ else
                         </InputSelect>
                     </div>
                     <div class="col-6">
-                        <label class="form-label">Setor</label>
+                        <label class="form-label">Centro de Custo</label>
                         <InputSelect @bind-Value="setorId" class="form-select" disabled="@(perfil == "Admin")">
                             <option value="0">Selecione...</option>
                             @if (setores is not null)
@@ -241,13 +241,13 @@ else
 
             if (perfil != "Admin" && setorId <= 0)
             {
-                erro = "É obrigatório selecionar um Setor para usuários que não são Admin.";
+                erro = "É obrigatório selecionar um Centro de Custo para usuários que não são Admin.";
                 return;
             }
 
             if (perfil == "Admin")
             {
-                setorId = 0; // Admin não precisa de setor
+                setorId = 0; // Admin não precisa de centro de custo
             }
 
             // Verificar ponto duplicado

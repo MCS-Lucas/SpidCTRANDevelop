@@ -56,7 +56,7 @@ else
                         <div class="card text-center border-success h-100">
                             <div class="card-body py-2">
                                 <div class="fs-3 fw-bold text-success">@setoresStatus.Count(s => s.Confirmado && s.Pendentes == 0)</div>
-                                <small class="text-muted">Setores Confirmados</small>
+                                <small class="text-muted">Centros de Custo Confirmados</small>
                             </div>
                         </div>
                     </div>
@@ -64,7 +64,7 @@ else
                         <div class="card text-center border-warning h-100">
                             <div class="card-body py-2">
                                 <div class="fs-3 fw-bold text-warning">@setoresStatus.Count(s => !s.Confirmado || s.Pendentes > 0)</div>
-                                <small class="text-muted">Setores Pendentes</small>
+                                <small class="text-muted">Centros de Custo Pendentes</small>
                             </div>
                         </div>
                     </div>
@@ -79,7 +79,7 @@ else
     }
     else if (setoresStatus.Count == 0)
     {
-        <div class="alert alert-info">Nenhum setor com viagens neste mês.</div>
+        <div class="alert alert-info">Nenhum centro de custo com viagens neste mês.</div>
     }
     else
     {
@@ -87,7 +87,7 @@ else
             <table class="table table-hover align-middle">
                 <thead class="table-dark">
                     <tr>
-                        <th class="text-center">Setor</th>
+                        <th class="text-center">Centro de Custo</th>
                         <th class="text-center">Viagens</th>
                         <th class="text-center">Pendentes</th>
                         <th class="text-center">OK</th>

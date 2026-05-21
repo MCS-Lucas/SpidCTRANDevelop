@@ -62,9 +62,9 @@
                         <label class="form-label">Perfil</label>
                         <input type="text" class="form-control" value="@usuario.Perfil" disabled />
                     </div>
-                    <div class="col-6">
-                        <label class="form-label">Setor</label>
-                        <input type="text" class="form-control" value="@(nomeSetor ?? "Nenhum")" disabled />
+                    <div class="col-md-6 mb-3">
+                        <label class="form-label">Centro de Custo</label>
+                        <div class="form-control bg-light">@(nomeSetor ?? "Não informado")</div>
                     </div>
                 </div>
 
@@ -133,8 +133,8 @@
             return;
         }
 
-        // Carrega o nome do setor
-        if (usuario.SetorId.HasValue && usuario.SetorId > 0)
+        // Carrega o nome do centro de custo
+        if (usuario?.SetorId.HasValue == true && usuario.SetorId > 0)
         {
             var setor = await Db.Setores.FindAsync(usuario.SetorId.Value);
             nomeSetor = setor?.Nome;

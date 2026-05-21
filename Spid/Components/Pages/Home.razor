@@ -37,7 +37,7 @@ else
                     <select class="setor-select" @bind="setorSelecionadoId" @bind:after="CarregarDados" disabled="@(!isAdmin)">
                         @if (isAdmin)
                         {
-                            <option value="">Todos os Setores</option>
+                            <option value="">Todos os Centros de Custo</option>
                         }
                         @foreach (var s in setores)
                         {
