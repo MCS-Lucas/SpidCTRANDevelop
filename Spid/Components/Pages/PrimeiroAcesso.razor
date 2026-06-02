@@ -42,8 +42,9 @@
                 </div>
 
                 <div class="mb-3">
-                    <label class="form-label">E-mail</label>
-                    <InputText @bind-Value="email" class="form-control" placeholder="Ex: joao@spid.com" />
+                    <label class="form-label">E-mail (Conta Google/Gmail)</label>
+                    <InputText @bind-Value="email" class="form-control" placeholder="Ex: joao@gmail.com" />
+                    <div class="form-text">É necessário informar uma conta de e-mail do Google (Gmail).</div>
                 </div>
 
                 <div class="row mb-3">
@@ -64,7 +65,7 @@
                     </div>
                     <div class="col-md-6 mb-3">
                         <label class="form-label">Centro de Custo</label>
-                        <div class="form-control bg-light">@(nomeSetor ?? "Não informado")</div>
+                        <div class="form-control bg-light">@(nomeCentroCusto ?? "Não informado")</div>
                     </div>
                 </div>
 
@@ -96,7 +97,7 @@
 
 @code {
     private Usuario? usuario;
-    private string? nomeSetor;
+    private string? nomeCentroCusto;
 
     private string email = "";
     private string cpf = "";
@@ -126,23 +127,29 @@
 
         usuario = UserSession.UsuarioLogado;
 
+        if (usuario is null)
+        {
+            Nav.NavigateTo("/login", forceLoad: true);
+            return;
+        }
+
         // Se já completou o primeiro acesso, redireciona para a home
-        if (usuario!.ContadorAcessos > 0)
+        if (usuario.ContadorAcessos > 0)
         {
             Nav.NavigateTo("/");
             return;
         }
 
         // Carrega o nome do centro de custo
-        if (usuario?.SetorId.HasValue == true && usuario.SetorId > 0)
+        if (usuario!.CentroCustoId.HasValue == true && usuario!.CentroCustoId > 0)
         {
-            var setor = await Db.Setores.FindAsync(usuario.SetorId.Value);
-            nomeSetor = setor?.Nome;
+            var centroCusto = await Db.CentrosCusto.FindAsync(usuario!.CentroCustoId.Value);
+            nomeCentroCusto = centroCusto?.Nome;
         }
 
         // Preenche campos editáveis com dados existentes
-        email = usuario.Email ?? "";
-        cpf = usuario.Cpf ?? "";
+        email = usuario!.Email ?? "";
+        cpf = usuario!.Cpf ?? "";
     }
 
     private async Task Salvar()
@@ -156,6 +163,12 @@
             if (string.IsNullOrWhiteSpace(email))
             {
                 erro = "O e-mail é obrigatório.";
+                return;
+            }
+
+            if (!email.Trim().EndsWith("@gmail.com", StringComparison.OrdinalIgnoreCase))
+            {
+                erro = "É necessário utilizar uma conta de e-mail do Google (@gmail.com).";
                 return;
             }
 
