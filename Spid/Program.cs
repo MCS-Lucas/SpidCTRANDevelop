@@ -284,7 +284,7 @@ app.MapGet("/login", (HttpContext ctx) =>
                   onkeydown="if (event.key === 'Enter' && event.target.tagName !== 'TEXTAREA') { event.preventDefault(); if (this.requestSubmit) { this.requestSubmit(); } else { this.submit(); } }">
                 <div class="mb-3">
                     <label for="ponto" class="form-label">Ponto</label>
-                    <input id="ponto" name="ponto" type="text" class="form-control" placeholder="Ex: 0001" autocomplete="username" required autofocus />
+                    <input id="ponto" name="ponto" type="text" class="form-control" placeholder="Ex: P_******" autocomplete="username" required autofocus />
                 </div>
                 <div class="mb-3">
                     <label for="senha" class="form-label">Senha</label>
@@ -295,7 +295,7 @@ app.MapGet("/login", (HttpContext ctx) =>
 
                 <br /><br />
                 <!-- TODO: Implementar rota e página para alteração de senha do usuário -->
-                <a href="" class="text-center mb-2 d-block">Alterar Senha</a>
+                <a href="" class="text-center mb-2 d-block">Esqueci minha senha</a>
             </form>
         </main>
     </body>
@@ -446,7 +446,7 @@ static async Task RunDatabaseSetupSafelyAsync(IServiceProvider rootServices, ILo
 
             db.PerfisRecurso.AddRange(
                 new PerfilRecurso { Perfil = "Admin", RecursoId = importar.Id },
-                new PerfilRecurso { Perfil = "Gestor Principal", RecursoId = analisar.Id },
+                new PerfilRecurso { Perfil = "Gestor Primário", RecursoId = analisar.Id },
                 new PerfilRecurso { Perfil = "Gestor Secundário", RecursoId = analisar.Id }
             );
 
@@ -460,7 +460,7 @@ static async Task RunDatabaseSetupSafelyAsync(IServiceProvider rootServices, ILo
         if (gestoresAntigos.Count > 0)
         {
             foreach (var u in gestoresAntigos)
-                u.Perfil = "Gestor Principal";
+                u.Perfil = "Gestor Primário";
 
             await db.SaveChangesAsync();
         }
@@ -472,7 +472,7 @@ static async Task RunDatabaseSetupSafelyAsync(IServiceProvider rootServices, ILo
         if (perfisAntigos.Count > 0)
         {
             foreach (var pr in perfisAntigos)
-                pr.Perfil = "Gestor Principal";
+                pr.Perfil = "Gestor Primário";
 
             await db.SaveChangesAsync();
         }
