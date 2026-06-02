@@ -7,7 +7,7 @@ public class AppDbContext : DbContext
     public AppDbContext(DbContextOptions<AppDbContext> options) : base(options) { }
 
     public DbSet<Usuario> Usuarios => Set<Usuario>();
-    public DbSet<Setor> Setores => Set<Setor>();
+    public DbSet<CentroCusto> CentrosCusto => Set<CentroCusto>();
     public DbSet<Colaborador> Colaboradores => Set<Colaborador>();
     public DbSet<ParceiroViagem> Parceiros => Set<ParceiroViagem>();
     public DbSet<Viagem> Viagens => Set<Viagem>();
@@ -31,11 +31,11 @@ public class AppDbContext : DbContext
             .HasForeignKey(l => l.UsuarioId)
             .OnDelete(DeleteBehavior.Restrict);
 
-        // Relacionamento: 1 Setor -> N Usuários (gestores)
+        // Relacionamento: 1 CentroCusto -> N Usuários (gestores)
         modelBuilder.Entity<Usuario>()
-            .HasOne(u => u.Setor)
+            .HasOne(u => u.CentroCusto)
             .WithMany(s => s.Usuarios)
-            .HasForeignKey(u => u.SetorId)
+            .HasForeignKey(u => u.CentroCustoId)
             .OnDelete(DeleteBehavior.SetNull);
 
         // Índice único no IdViagemParceiro para deduplicação na importação
@@ -44,19 +44,19 @@ public class AppDbContext : DbContext
             .IsUnique();
 
         // SQL Server não permite múltiplos caminhos de cascade delete.
-        // Caminho 1: Setores → Colaboradores (CASCADE) → Viagens (CASCADE)
-        // Caminho 2: Setores → Viagens (direto - deve ser RESTRICT)
+        // Caminho 1: CentrosCusto → Colaboradores (CASCADE) → Viagens (CASCADE)
+        // Caminho 2: CentrosCusto → Viagens (direto - deve ser RESTRICT)
         modelBuilder.Entity<Viagem>()
-            .HasOne(v => v.Setor)
+            .HasOne(v => v.CentroCusto)
             .WithMany(s => s.Viagens)
-            .HasForeignKey(v => v.SetorId)
+            .HasForeignKey(v => v.CentroCustoId)
             .OnDelete(DeleteBehavior.Restrict);
 
-        // Idem: ConferenciaMensal referencia Setor e Usuario (que também referencia Setor)
+        // Idem: ConferenciaMensal referencia CentroCusto e Usuario (que também referencia CentroCusto)
         modelBuilder.Entity<ConferenciaMensal>()
-            .HasOne(c => c.Setor)
+            .HasOne(c => c.CentroCusto)
             .WithMany()
-            .HasForeignKey(c => c.SetorId)
+            .HasForeignKey(c => c.CentroCustoId)
             .OnDelete(DeleteBehavior.Restrict);
 
         modelBuilder.Entity<ConferenciaMensal>()
@@ -93,9 +93,9 @@ public class AppDbContext : DbContext
             .HasIndex(pr => new { pr.Perfil, pr.RecursoId })
             .IsUnique();
 
-        // Índice único: só uma confirmação por setor/mês/ano
+        // Índice único: só uma confirmação por centroCusto/mês/ano
         modelBuilder.Entity<ConferenciaMensal>()
-            .HasIndex(c => new { c.SetorId, c.Ano, c.Mes })
+            .HasIndex(c => new { c.CentroCustoId, c.Ano, c.Mes })
             .IsUnique();
     }
 }

@@ -6,8 +6,8 @@ public class Colaborador
     public string Nome { get; set; } = null!;
     public string Cpf { get; set; } = null!;
 
-    public int SetorId { get; set; }
-    public Setor Setor { get; set; } = null!;
+    public int CentroCustoId { get; set; }
+    public CentroCusto CentroCusto { get; set; } = null!;
 
     public ICollection<Viagem> Viagens { get; set; } = new List<Viagem>();
 }

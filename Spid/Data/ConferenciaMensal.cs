@@ -2,7 +2,7 @@ namespace Spid.Data;
 
 /// <summary>
 /// Registro de confirmação mensal de um gestor.
-/// Indica que ele verificou todas as viagens do seu setor naquele mês/ano.
+/// Indica que ele verificou todas as viagens do seu centro de custo naquele mês/ano.
 /// </summary>
 public class ConferenciaMensal
 {
@@ -11,9 +11,9 @@ public class ConferenciaMensal
     public int Ano { get; set; }
     public int Mes { get; set; }
 
-    // Setor cujas viagens foram conferidas
-    public int SetorId { get; set; }
-    public Setor Setor { get; set; } = null!;
+    // Centro de Custo cujas viagens foram conferidas
+    public int CentroCustoId { get; set; }
+    public CentroCusto CentroCusto { get; set; } = null!;
 
     // Gestor que confirmou
     public int UsuarioId { get; set; }

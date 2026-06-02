@@ -1,6 +1,6 @@
 namespace Spid.Data;
 
-public class Setor
+public class CentroCusto
 {
     public int Id { get; set; }
     public string Nome { get; set; } = null!; // ex.: "CTRAN/SEMOV"

@@ -13,7 +13,7 @@ public class Usuario
     // Ponto do usuário, usado no login
     public string Ponto { get; set; } = null!;
 
-    // Perfil: "Admin", "Gestor Principal" ou "Gestor Secundário"
+    // Perfil: "Admin", "Gestor Primário", "Gestor Secundário", "Gestor Central Padrão" ou "Gestor Central Ateste"
     public string Perfil { get; set; } = null!;
 
     // Hash da senha (gerado via PasswordHasher<Usuario>)
@@ -25,7 +25,7 @@ public class Usuario
     // Contador de acessos: 0 = nunca acessou (primeiro acesso pendente), 1 = já completou primeiro acesso
     public int ContadorAcessos { get; set; } = 0;
 
-    // Setor ao qual o usuário pertence (gestores veem viagens do seu setor)
-    public int? SetorId { get; set; }
-    public Setor? Setor { get; set; }
+    // Centro de Custo ao qual o usuário pertence (gestores veem viagens do seu centro de custo)
+    public int? CentroCustoId { get; set; }
+    public CentroCusto? CentroCusto { get; set; }
 }

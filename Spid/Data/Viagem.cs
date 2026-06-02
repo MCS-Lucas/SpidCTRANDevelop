@@ -22,8 +22,8 @@ public class Viagem
     public int ColaboradorId { get; set; }
     public Colaborador Colaborador { get; set; } = null!;
 
-    public int SetorId { get; set; }
-    public Setor Setor { get; set; } = null!;
+    public int CentroCustoId { get; set; }
+    public CentroCusto CentroCusto { get; set; } = null!;
 
     public int ParceiroViagemId { get; set; }
     public ParceiroViagem Parceiro { get; set; } = null!;
