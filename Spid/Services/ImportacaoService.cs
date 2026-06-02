@@ -34,7 +34,7 @@ public class ImportacaoService
             .ToHashSetAsync();
 
         // Cache de entidades para evitar consultas repetidas
-        var setoresCache = await _db.Setores.ToDictionaryAsync(s => s.Nome);
+        var centrosCustoCache = await _db.CentrosCusto.ToDictionaryAsync(s => s.Nome);
         var parceirosCache = await _db.Parceiros.ToDictionaryAsync(p => p.Nome);
         var colaboradoresCache = await _db.Colaboradores.ToDictionaryAsync(c => c.Cpf);
 
@@ -47,9 +47,9 @@ public class ImportacaoService
         try
         {
             // Primeira passada: resolver/criar entidades auxiliares
-            var novosSetores = new List<Setor>();
+            var novosCentrosCusto = new List<CentroCusto>();
             var novosParceiros = new List<ParceiroViagem>();
-            var novosColaboradores = new List<(int row, string cpf, string nome, Setor setor)>();
+            var novosColaboradores = new List<(int row, string cpf, string nome, CentroCusto centroCusto)>();
 
             for (int row = 2; row <= lastRow; row++)
             {
@@ -64,11 +64,11 @@ public class ImportacaoService
                     var cpf = ws.Cell(row, 3).GetString().Trim();
                     var nomeColab = ws.Cell(row, 2).GetString().Trim();
 
-                    if (!setoresCache.ContainsKey(centroCusto))
+                    if (!centrosCustoCache.ContainsKey(centroCusto))
                     {
-                        var setor = new Setor { Nome = centroCusto };
-                        novosSetores.Add(setor);
-                        setoresCache[centroCusto] = setor;
+                        var objCentroCusto = new CentroCusto { Nome = centroCusto };
+                        novosCentrosCusto.Add(objCentroCusto);
+                        centrosCustoCache[centroCusto] = objCentroCusto;
                     }
 
                     if (!parceirosCache.ContainsKey(parceiroNome))
@@ -80,7 +80,7 @@ public class ImportacaoService
 
                     if (!colaboradoresCache.ContainsKey(cpf))
                     {
-                        novosColaboradores.Add((row, cpf, nomeColab, setoresCache[centroCusto]));
+                        novosColaboradores.Add((row, cpf, nomeColab, centrosCustoCache[centroCusto]));
                         colaboradoresCache[cpf] = null!; // placeholder
                     }
                 }
@@ -91,9 +91,9 @@ public class ImportacaoService
             }
 
             // Salvar entidades auxiliares em batch
-            if (novosSetores.Count > 0)
+            if (novosCentrosCusto.Count > 0)
             {
-                _db.Setores.AddRange(novosSetores);
+                _db.CentrosCusto.AddRange(novosCentrosCusto);
                 await _db.SaveChangesAsync();
             }
 
@@ -103,14 +103,14 @@ public class ImportacaoService
                 await _db.SaveChangesAsync();
             }
 
-            // Criar colaboradores (precisam do SetorId já persistido)
+            // Criar colaboradores (precisam do CentroCustoId já persistido)
             if (novosColaboradores.Count > 0)
             {
                 var colabEntities = novosColaboradores.Select(c => new Colaborador
                 {
                     Nome = c.nome,
                     Cpf = c.cpf,
-                    SetorId = c.setor.Id
+                    CentroCustoId = c.centroCusto.Id
                 }).ToList();
 
                 _db.Colaboradores.AddRange(colabEntities);
@@ -151,7 +151,7 @@ public class ImportacaoService
                     var avaliacaoStr = ws.Cell(row, 14).GetString().Trim();
                     var motivo = ws.Cell(row, 15).GetString().Trim();
 
-                    var setor = setoresCache[centroCusto];
+                    var centroCustoObj = centrosCustoCache[centroCusto];
                     var parceiro = parceirosCache[parceiroNome];
                     var colaborador = colaboradoresCache[cpf];
 
@@ -178,7 +178,7 @@ public class ImportacaoService
                         Motivo = motivo,
                         IdViagemParceiro = idViagemParceiro,
                         ColaboradorId = colaborador.Id,
-                        SetorId = setor.Id,
+                        CentroCustoId = centroCustoObj.Id,
                         ParceiroViagemId = parceiro.Id,
                         StatusConferenciaGestor = "Pendente"
                     };
