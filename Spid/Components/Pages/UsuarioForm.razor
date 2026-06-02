@@ -42,13 +42,13 @@ else
 
                 <div class="mb-3">
                     <label class="form-label">E-mail</label>
-                    <InputText @bind-Value="email" class="form-control" placeholder="Ex: joao@spid.com" />
+                    <InputText @bind-Value="email" class="form-control" placeholder="Ex: joaoexemplo@gmail.com" />
                 </div>
 
                 <div class="row mb-3">
                     <div class="col-6">
                         <label class="form-label">Ponto (login)</label>
-                        <InputText @bind-Value="ponto" class="form-control" placeholder="Ex: 6845" />
+                        <InputText @bind-Value="ponto" class="form-control" placeholder="Ex: P_******" />
                     </div>
                     <div class="col-6">
                         <label class="form-label">CPF</label>
@@ -59,36 +59,59 @@ else
                 <div class="row mb-3">
                     <div class="col-6">
                         <label class="form-label">Perfil</label>
-                        <InputSelect @bind-Value="perfil" class="form-select">
+                        <InputSelect @bind-Value="grupoPerfil" class="form-select" @bind-Value:after="OnGrupoPerfilChanged" disabled="@(editando && UserSession.UsuarioLogado!.Perfil == "Gestor Central Padrão")">
                             <option value="">Selecione...</option>
                             @if (isAdmin)
                             {
-                                <option value="Admin">Admin</option>
-                                <option value="Gestor Principal">Gestor Principal</option>
-                                <option value="Gestor Secundário">Gestor Secundário</option>
-
+                                @if (UserSession.UsuarioLogado!.Perfil == "Admin")
+                                {
+                                    <option value="Admin">Admin</option>
+                                }
+                                <option value="Gestor">Gestor</option>
+                                <option value="Gestor Central">Gestor Central</option>
                             }
                             else
                             {
                                 <option value="Colaborador">Colaborador</option>
                             }
-
-
                         </InputSelect>
                     </div>
                     <div class="col-6">
-                        <label class="form-label">Centro de Custo</label>
-                        <InputSelect @bind-Value="setorId" class="form-select" disabled="@(perfil == "Admin")">
-                            <option value="0">Selecione...</option>
-                            @if (setores is not null)
+                        <label class="form-label">Tipo de Gestor</label>
+                        <InputSelect @bind-Value="subtipoPerfil" class="form-select"
+                                     disabled="@((editando && UserSession.UsuarioLogado!.Perfil == "Gestor Central Padrão") || (grupoPerfil != "Gestor" && grupoPerfil != "Gestor Central"))">
+                            <option value="">Selecione...</option>
+                            @if (grupoPerfil == "Gestor")
                             {
-                                @foreach (var s in setores)
+                                <option value="Primário">Primário</option>
+                                <option value="Secundário">Secundário</option>
+                            }
+                            else if (grupoPerfil == "Gestor Central")
+                            {
+                                <option value="Padrão">Padrão</option>
+                                @if (UserSession.UsuarioLogado!.Perfil == "Admin" || UserSession.UsuarioLogado!.Perfil ==
+              "Gestor Central Ateste")
                                 {
-                                    <option value="@s.Id">@s.Nome</option>
+                                    <option value="Ateste">Ateste</option>
                                 }
                             }
                         </InputSelect>
                     </div>
+                </div>
+
+                <div class="mb-3">
+                    <label class="form-label">Centro de Custo</label>
+                    <InputSelect @bind-Value="centroCustoId" class="form-select"
+                                 disabled="@(grupoPerfil != "Gestor" && grupoPerfil != "Colaborador" && (grupoPerfil != "Gestor Central" || subtipoPerfil != "Ateste"))">
+                        <option value="0">Selecione...</option>
+                        @if (centrosCusto is not null)
+                        {
+                            @foreach (var s in centrosCusto)
+                            {
+                                <option value="@s.Id">@s.Nome</option>
+                            }
+                        }
+                    </InputSelect>
                 </div>
 
                 @if (editando)
@@ -111,7 +134,8 @@ else
                             <InputCheckbox @bind-Value="ativo" class="form-check-input" id="ativoCheck" />
                             <label class="form-check-label" for="ativoCheck">Usuário ativo</label>
                         </div>
-                        @if (editando && IdUsuario != UserSession.UsuarioLogado?.Id)
+                        @if (editando && IdUsuario != UserSession.UsuarioLogado?.Id && UserSession.UsuarioLogado?.Perfil ==
+                "Admin")
                         {
                             <button type="button" class="btn btn-outline-danger btn-sm"
                                     @onclick="() => exibindoConfirmacaoExclusao = true">
@@ -182,12 +206,13 @@ else
     private string email = "";
     private string ponto = "";
     private string? cpf;
-    private string perfil = "";
-    private int setorId;
+    private string grupoPerfil = "";
+    private string subtipoPerfil = "";
+    private int centroCustoId;
     private string senha = "";
     private bool ativo = true;
 
-    private List<Setor>? setores;
+    private List<CentroCusto>? centrosCusto;
     private Usuario? usuarioEditando;
 
     protected override async Task OnInitializedAsync()
@@ -198,10 +223,10 @@ else
             return;
         }
 
-        isAdmin = UserSession.UsuarioLogado!.Perfil == "Admin";
+        isAdmin = UserSession.UsuarioLogado!.Perfil == "Admin" || UserSession.UsuarioLogado!.Perfil.StartsWith("Gestor Central");
         if (!isAdmin) return;
 
-        setores = await Db.Setores.OrderBy(s => s.Nome).ToListAsync();
+        centrosCusto = await Db.CentrosCusto.OrderBy(s => s.Nome).ToListAsync();
 
         if (IdUsuario > 0)
         {
@@ -214,13 +239,60 @@ else
                 return;
             }
 
+            var perfilLogado = UserSession.UsuarioLogado!.Perfil;
+            var perfilAlvo = usuarioEditando.Perfil;
+            bool eEleMesmo = UserSession.UsuarioLogado!.Id == usuarioEditando.Id;
+
+            bool podeEditar = eEleMesmo || perfilLogado == "Admin" ||
+                             (perfilLogado == "Gestor Central Ateste" && perfilAlvo != "Admin" && perfilAlvo != "Gestor Central Ateste") ||
+                             (perfilLogado == "Gestor Central Padrão" && (perfilAlvo == "Gestor Primário" || perfilAlvo == "Gestor Secundário"));
+            
+            if (!podeEditar)
+            {
+                Nav.NavigateTo("/usuarios");
+                return;
+            }
+
             nome = usuarioEditando.Nome;
             email = usuarioEditando.Email;
             ponto = usuarioEditando.Ponto;
             cpf = usuarioEditando.Cpf;
-            perfil = usuarioEditando.Perfil;
-            setorId = usuarioEditando.SetorId ?? 0;
+
+            if (usuarioEditando.Perfil == "Admin" || usuarioEditando.Perfil == "Colaborador")
+            {
+                grupoPerfil = usuarioEditando.Perfil;
+                subtipoPerfil = "";
+            }
+            else if (usuarioEditando.Perfil.StartsWith("Gestor Central "))
+            {
+                grupoPerfil = "Gestor Central";
+                subtipoPerfil = usuarioEditando.Perfil.Replace("Gestor Central ", "");
+            }
+            else if (usuarioEditando.Perfil.StartsWith("Gestor "))
+            {
+                grupoPerfil = "Gestor";
+                subtipoPerfil = usuarioEditando.Perfil.Replace("Gestor ", "");
+            }
+
+            centroCustoId = usuarioEditando.CentroCustoId ?? 0;
             ativo = usuarioEditando.Ativo;
+        }
+    }
+
+    private void OnGrupoPerfilChanged()
+    {
+        subtipoPerfil = "";
+        if (grupoPerfil == "Admin")
+        {
+            centroCustoId = 0;
+        }
+    }
+
+    private void OnSubtipoPerfilChanged()
+    {
+        if (grupoPerfil == "Gestor Central" && subtipoPerfil == "Padrão")
+        {
+            centroCustoId = 0;
         }
     }
 
@@ -233,21 +305,57 @@ else
         try
         {
             // Validações
-            if (string.IsNullOrWhiteSpace(nome) || string.IsNullOrWhiteSpace(ponto) || string.IsNullOrWhiteSpace(perfil))
+            if (string.IsNullOrWhiteSpace(nome) || string.IsNullOrWhiteSpace(ponto) || string.IsNullOrWhiteSpace(grupoPerfil))
             {
                 erro = "Preencha Nome, Ponto e Perfil.";
                 return;
             }
 
-            if (perfil != "Admin" && setorId <= 0)
+            if ((grupoPerfil == "Gestor" || grupoPerfil == "Gestor Central") && string.IsNullOrWhiteSpace(subtipoPerfil))
             {
-                erro = "É obrigatório selecionar um Centro de Custo para usuários que não são Admin.";
+                erro = "Selecione o tipo específico de Gestor.";
                 return;
             }
 
-            if (perfil == "Admin")
+            if (grupoPerfil == "Admin" && UserSession.UsuarioLogado!.Perfil != "Admin")
             {
-                setorId = 0; // Admin não precisa de centro de custo
+                erro = "Apenas administradores podem criar ou editar perfis de Admin.";
+                return;
+            }
+
+            if (grupoPerfil == "Gestor Central" && subtipoPerfil == "Ateste")
+            {
+                if (UserSession.UsuarioLogado!.Perfil != "Admin" && UserSession.UsuarioLogado!.Perfil != "Gestor Central Ateste")
+                {
+                    erro = "Apenas administradores e Gestores Centrais Ateste podem criar ou editar perfis de Gestor Central Ateste.";
+                    return;
+                }
+            }
+
+            var isGestorCentralPadrao = grupoPerfil == "Gestor Central" && subtipoPerfil == "Padrão";
+
+            if (grupoPerfil != "Admin" && !isGestorCentralPadrao && centroCustoId <= 0)
+            {
+                erro = "É obrigatório selecionar um Centro de Custo para este perfil.";
+                return;
+            }
+
+            if (grupoPerfil == "Admin" || isGestorCentralPadrao)
+            {
+                centroCustoId = 0; // Admin e Gestor Central Padrão não precisam de centro de custo
+            }
+
+            var perfilFinal = grupoPerfil;
+            if (!string.IsNullOrWhiteSpace(subtipoPerfil))
+            {
+                perfilFinal = $"{grupoPerfil} {subtipoPerfil}";
+            }
+
+            bool eEleMesmoNoSalvar = editando && usuarioEditando?.Id == UserSession.UsuarioLogado?.Id;
+            if (UserSession.UsuarioLogado!.Perfil == "Gestor Central Padrão" && perfilFinal != "Gestor Primário" && perfilFinal != "Gestor Secundário" && !eEleMesmoNoSalvar)
+            {
+                erro = "Gestores Centrais Padrão só podem gerenciar e criar perfis de Gestor Primário e Secundário.";
+                return;
             }
 
             // Verificar ponto duplicado
@@ -266,8 +374,13 @@ else
                 usuarioEditando.Email = email ?? "";
                 usuarioEditando.Ponto = ponto;
                 usuarioEditando.Cpf = cpf;
-                usuarioEditando.Perfil = perfil;
-                usuarioEditando.SetorId = setorId > 0 ? setorId : null;
+                
+                if (UserSession.UsuarioLogado!.Perfil != "Gestor Central Padrão")
+                {
+                    usuarioEditando.Perfil = perfilFinal;
+                }
+
+                usuarioEditando.CentroCustoId = centroCustoId > 0 ? centroCustoId : null;
                 usuarioEditando.Ativo = ativo;
 
                 if (!string.IsNullOrWhiteSpace(senha))
@@ -286,8 +399,8 @@ else
                     Email = email ?? "",
                     Ponto = ponto,
                     Cpf = cpf,
-                    Perfil = perfil,
-                    SetorId = setorId > 0 ? setorId : null,
+                    Perfil = perfilFinal,
+                    CentroCustoId = centroCustoId > 0 ? centroCustoId : null,
                     Ativo = ativo,
                     ContadorAcessos = 0
                 };
@@ -299,9 +412,9 @@ else
                 sucesso = "Usuário criado com sucesso!";
 
                 // Limpar campos
-                nome = email = ponto = perfil = "";
+                nome = email = ponto = grupoPerfil = subtipoPerfil = "";
                 cpf = null;
-                setorId = 0;
+                centroCustoId = 0;
                 ativo = true;
             }
         }
@@ -318,6 +431,12 @@ else
     private async Task ExcluirUsuario()
     {
         if (usuarioEditando is null) return;
+        if (UserSession.UsuarioLogado?.Perfil != "Admin")
+        {
+            erro = "Apenas Administradores podem excluir usuários.";
+            exibindoConfirmacaoExclusao = false;
+            return;
+        }
 
         salvando = true;
         erro = null;

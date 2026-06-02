@@ -50,6 +50,12 @@
                 </NavLink>
             </div>
         }
+
+        <div class="nav-item px-3">
+            <NavLink class="nav-link" href="minhas-informacoes">
+                <Icon Name="user-pen" Size="16" Class="nav-icon" /> Minhas Informações
+            </NavLink>
+        </div>
     </nav>
 </div>
 
@@ -63,7 +69,7 @@
         if (!UserSession.IsAuthenticated) return;
 
         var perfil = UserSession.UsuarioLogado!.Perfil;
-        isAdmin = perfil == "Admin";
+        isAdmin = perfil == "Admin" || perfil.StartsWith("Gestor Central");
 
         // Usa contexto isolado via factory para evitar conflito com o AppDbContext
         // Scoped da página que está sendo renderizada ao mesmo tempo durante o SSR.

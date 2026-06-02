@@ -36,16 +36,31 @@ else
 {
     <!-- Filtros -->
     <div class="card shadow-sm mb-4">
-        <div class="card-body py-2 d-flex align-items-center gap-3 flex-wrap">
-            <div class="d-flex align-items-center gap-2">
-                <label class="form-label mb-0 small fw-bold text-muted">Filtrar por Perfil:</label>
-                <select class="form-select form-select-sm" style="max-width: 280px; border-radius: 6px;" 
-                        @bind="perfilSelecionado" @bind:after="AplicarFiltrosEOrdenacao">
+        <div class="card-body d-flex align-items-center gap-3 flex-wrap">
+            <div class="d-flex align-items-center gap-3">
+                <label class="form-label mb-0 fw-bold text-nowrap">Filtrar por Perfil:</label>
+                <select class="form-select" style="width: auto; min-width: 180px; border-radius: 6px;" 
+                        @bind="perfilSelecionado" @bind:after="OnPerfilChanged">
                     <option value="Todos">Todos os Perfis</option>
-                    <option value="Admin">Administradores</option>
-                    <option value="Gestores">Gestores (Principal e Secundário)</option>
-                    <option value="Gestor Principal">Gestor Principal</option>
-                    <option value="Gestor Secundário">Gestor Secundário</option>
+                    <option value="Admin">Admins</option>
+                    <option value="Gestores">Gestores</option>
+                    <option value="Gestores Centrais">Gestores Centrais</option>
+                </select>
+                
+                <select class="form-select" style="width: auto; min-width: 160px; border-radius: 6px;" 
+                        @bind="subtipoSelecionado" @bind:after="AplicarFiltrosEOrdenacao"
+                        disabled="@(perfilSelecionado == "Todos" || perfilSelecionado == "Admin")">
+                    <option value="Todos">Todos</option>
+                    @if (perfilSelecionado == "Gestores")
+                    {
+                        <option value="Primário">Primário(s)</option>
+                        <option value="Secundário">Secundário(s)</option>
+                    }
+                    else if (perfilSelecionado == "Gestores Centrais")
+                    {
+                        <option value="Padrão">Padrão</option>
+                        <option value="Ateste">Ateste</option>
+                    }
                 </select>
             </div>
             
@@ -86,11 +101,11 @@ else
                             <td class="text-center"><code>@u.Ponto</code></td>
                             <td class="text-center">@u.Email</td>
                             <td class="text-center">
-                                <span class="badge @(u.Perfil == "Admin" ? "bg-danger" : "bg-primary")">
+                                <span class="badge @(u.Perfil == "Admin" ? "bg-danger" : u.Perfil == "Gestor Central Ateste" ? "bg-warning text-dark" : u.Perfil == "Gestor Central Padrão" ? "bg-info text-dark" : "bg-primary")">
                                     @u.Perfil
                                 </span>
                             </td>
-                            <td class="text-center">@(u.Setor?.Nome ?? "—")</td>
+                            <td class="text-center">@(u.CentroCusto?.Nome ?? "—")</td>
                             <td class="text-center">
                                 <span class="badge @(u.Ativo ? "bg-success" : "bg-secondary")">
                                     @(u.Ativo ? "Ativo" : "Inativo")
@@ -98,10 +113,17 @@ else
                             </td>
                             <td class="text-center">
                                 <div class="user-action-group">
-                                    <a href="/usuarios/editar/@u.Id" class="btn btn-sm btn-user-action btn-user-edit"
-                                       title="Editar usuário">
-                                        <Icon Name="user-pen" Size="15" Class="icon-duotone action-icon" /> Editar
-                                    </a>
+                                    @if (PodeEditar(u))
+                                    {
+                                        <a href="/usuarios/editar/@u.Id" class="btn btn-sm btn-user-action btn-user-edit"
+                                           title="Editar usuário">
+                                            <Icon Name="user-pen" Size="15" Class="icon-duotone action-icon" /> Editar
+                                        </a>
+                                    }
+                                    else
+                                    {
+                                        <span class="text-muted small">Sem permissão</span>
+                                    }
                                 </div>
                             </td>
                         </tr>
@@ -117,6 +139,7 @@ else
     private List<Usuario>? usuarios;
     private bool isAdmin;
     private string perfilSelecionado = "Todos";
+    private string subtipoSelecionado = "Todos";
     private bool ordenarNomeAsc = true;
 
     protected override async Task OnInitializedAsync()
@@ -127,8 +150,25 @@ else
             return;
         }
 
-        isAdmin = UserSession.UsuarioLogado!.Perfil == "Admin";
+        var perfilLogado = UserSession.UsuarioLogado!.Perfil;
+        isAdmin = perfilLogado == "Admin" || perfilLogado.StartsWith("Gestor Central");
         if (!isAdmin) return;
+
+        // Pré-selecionar filtro
+        if (perfilLogado == "Admin")
+        {
+            perfilSelecionado = "Admin";
+        }
+        else if (perfilLogado.StartsWith("Gestor Central "))
+        {
+            perfilSelecionado = "Gestores Centrais";
+            subtipoSelecionado = perfilLogado.Replace("Gestor Central ", "");
+        }
+        else if (perfilLogado.StartsWith("Gestor "))
+        {
+            perfilSelecionado = "Gestores";
+            subtipoSelecionado = perfilLogado.Replace("Gestor ", "");
+        }
 
         await CarregarUsuarios();
     }
@@ -136,10 +176,30 @@ else
     private async Task CarregarUsuarios()
     {
         todosUsuarios = await Db.Usuarios
-            .Include(u => u.Setor)
+            .Include(u => u.CentroCusto)
             .ToListAsync();
 
         AplicarFiltrosEOrdenacao();
+    }
+
+    private bool PodeEditar(Usuario alvo)
+    {
+        var perfilLogado = UserSession.UsuarioLogado!.Perfil;
+        var logadoId = UserSession.UsuarioLogado!.Id;
+        
+        if (perfilLogado == "Admin" || alvo.Id == logadoId) return true;
+        
+        if (perfilLogado == "Gestor Central Ateste")
+        {
+            return alvo.Perfil != "Admin" && alvo.Perfil != "Gestor Central Ateste";
+        }
+        
+        if (perfilLogado == "Gestor Central Padrão")
+        {
+            return alvo.Perfil == "Gestor Primário" || alvo.Perfil == "Gestor Secundário";
+        }
+        
+        return false;
     }
 
     private void AplicarFiltrosEOrdenacao()
@@ -153,7 +213,17 @@ else
         {
             if (perfilSelecionado == "Gestores")
             {
-                query = query.Where(u => u.Perfil == "Gestor Principal" || u.Perfil == "Gestor Secundário");
+                if (subtipoSelecionado == "Todos")
+                    query = query.Where(u => u.Perfil == "Gestor Primário" || u.Perfil == "Gestor Secundário");
+                else
+                    query = query.Where(u => u.Perfil == $"Gestor {subtipoSelecionado}");
+            }
+            else if (perfilSelecionado == "Gestores Centrais")
+            {
+                if (subtipoSelecionado == "Todos")
+                    query = query.Where(u => u.Perfil == "Gestor Central Padrão" || u.Perfil == "Gestor Central Ateste");
+                else
+                    query = query.Where(u => u.Perfil == $"Gestor Central {subtipoSelecionado}");
             }
             else
             {
@@ -172,6 +242,12 @@ else
     private void AlternarOrdemNome()
     {
         ordenarNomeAsc = !ordenarNomeAsc;
+        AplicarFiltrosEOrdenacao();
+    }
+
+    private void OnPerfilChanged()
+    {
+        subtipoSelecionado = "Todos";
         AplicarFiltrosEOrdenacao();
     }
 }

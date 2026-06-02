@@ -1,0 +1,346 @@
+@page "/minhas-informacoes"
+@using Microsoft.EntityFrameworkCore
+@using Spid.Data
+@inject AppDbContext Db
+@inject UserSession UserSession
+@inject NavigationManager Nav
+
+<PageTitle>Minhas Informações — SPID</PageTitle>
+
+<h3 class="mb-4">
+    <Icon Name="user-pen" Size="24" Class="page-header-icon" /> <text>Minhas Informações</text>
+</h3>
+
+@if (!UserSession.IsAuthenticated)
+{
+    <div class="alert alert-warning">Sessão expirada.</div>
+}
+else
+{
+    @if (!string.IsNullOrEmpty(erro))
+    {
+        <div class="alert alert-danger">@erro</div>
+    }
+
+    @if (!string.IsNullOrEmpty(sucesso))
+    {
+        <div class="alert alert-success">@sucesso</div>
+    }
+
+    <div class="card shadow-sm" style="max-width: 600px;">
+        <div class="card-body">
+            <EditForm Model="this" OnValidSubmit="Salvar">
+                <div class="mb-3">
+                    <label class="form-label">Nome completo</label>
+                    <InputText @bind-Value="nome" class="form-control" placeholder="Ex: João Silva" />
+                </div>
+
+                <div class="mb-3">
+                    <label class="form-label">E-mail</label>
+                    <InputText @bind-Value="email" class="form-control" placeholder="Ex: joaoexemplo@gmail.com" />
+                </div>
+
+                <div class="row mb-3">
+                    <div class="col-6">
+                        <label class="form-label">Ponto (login)</label>
+                        <InputText @bind-Value="ponto" class="form-control" placeholder="Ex: P_******"
+                                   disabled="@eGestorComum" />
+                    </div>
+                    <div class="col-6">
+                        <label class="form-label">CPF</label>
+                        <InputText @bind-Value="cpf" class="form-control" placeholder="000.000.000-00" />
+                    </div>
+                </div>
+
+                <div class="row mb-3">
+                    <div class="col-6">
+                        <label class="form-label">Perfil</label>
+                        <InputSelect @bind-Value="grupoPerfil" class="form-select" @bind-Value:after="OnGrupoPerfilChanged" disabled="@bloquearPerfil">
+                            <option value="">Selecione...</option>
+                            @if (!string.IsNullOrEmpty(grupoPerfil))
+                            {
+                                <option value="@grupoPerfil">@grupoPerfil</option>
+                            }
+                            @if (!bloquearPerfil)
+                            {
+                                @if (isAdmin)
+                                {
+                                    @if (UserSession.UsuarioLogado!.Perfil == "Admin" && grupoPerfil != "Admin")
+                                    {
+                                        <option value="Admin">Admin</option>
+                                    }
+                                    @if (grupoPerfil != "Gestor") { <option value="Gestor">Gestor</option> }
+                                    @if (grupoPerfil != "Gestor Central") { <option value="Gestor Central">Gestor Central</option> }
+                                }
+                                else if (grupoPerfil != "Colaborador")
+                                {
+                                    <option value="Colaborador">Colaborador</option>
+                                }
+                            }
+                        </InputSelect>
+                    </div>
+                    <div class="col-6">
+                        <label class="form-label">Tipo de Gestor</label>
+                        <InputSelect @bind-Value="subtipoPerfil" class="form-select"
+                                     disabled="@(bloquearPerfil || (grupoPerfil != "Gestor" && grupoPerfil != "Gestor Central"))">
+                            <option value="">Selecione...</option>
+                            @if (!string.IsNullOrEmpty(subtipoPerfil))
+                            {
+                                <option value="@subtipoPerfil">@subtipoPerfil</option>
+                            }
+                            @if (!bloquearPerfil)
+                            {
+                                @if (grupoPerfil == "Gestor")
+                                {
+                                    @if (subtipoPerfil != "Primário") { <option value="Primário">Primário</option> }
+                                    @if (subtipoPerfil != "Secundário") { <option value="Secundário">Secundário</option> }
+                                }
+                                else if (grupoPerfil == "Gestor Central")
+                                {
+                                    @if (subtipoPerfil != "Padrão") { <option value="Padrão">Padrão</option> }
+                                    @if (subtipoPerfil != "Ateste" && (UserSession.UsuarioLogado!.Perfil == "Admin" || UserSession.UsuarioLogado!.Perfil == "Gestor Central Ateste"))
+                                    {
+                                        <option value="Ateste">Ateste</option>
+                                    }
+                                }
+                            }
+                        </InputSelect>
+                    </div>
+                </div>
+
+                <div class="mb-3">
+                    <label class="form-label">Centro de Custo</label>
+                    <InputSelect @bind-Value="centroCustoId" class="form-select"
+                                 disabled="@(eGestorComum || (grupoPerfil != "Gestor" && grupoPerfil != "Colaborador" && (grupoPerfil != "Gestor Central" || subtipoPerfil != "Ateste")))">
+                        <option value="0">Selecione...</option>
+                        @if (centrosCusto is not null)
+                        {
+                            @foreach (var s in centrosCusto)
+                            {
+                                <option value="@s.Id">@s.Nome</option>
+                            }
+                        }
+                    </InputSelect>
+                </div>
+
+                <div class="mb-3">
+                    <label class="form-label">Nova senha (deixe em branco para manter a atual)</label>
+                    <InputText @bind-Value="senha" type="password" class="form-control" placeholder="••••••••" />
+                </div>
+
+                <div class="mb-3 d-flex justify-content-between align-items-center">
+                    <div class="form-check">
+                        <InputCheckbox @bind-Value="ativo" class="form-check-input" id="ativoCheck"
+                                       disabled="@eGestorComum" />
+                        <label class="form-check-label" for="ativoCheck">Usuário ativo</label>
+                    </div>
+                </div>
+
+                <div class="d-flex gap-2">
+                    <button type="submit" class="btn btn-primary" disabled="@salvando">
+                        @if (salvando)
+                        {
+                            <span class="spinner-border spinner-border-sm me-2"></span>
+                        }
+                        Salvar Alterações
+                    </button>
+                    <a href="/" class="btn btn-outline-secondary">Cancelar</a>
+                </div>
+            </EditForm>
+        </div>
+    </div>
+}
+
+@code {
+    private bool eGestorComum;
+    private bool bloquearPerfil;
+    private bool isAdmin;
+    private bool salvando;
+    private string? erro;
+    private string? sucesso;
+
+    private string nome = "";
+    private string email = "";
+    private string ponto = "";
+    private string? cpf;
+    private string grupoPerfil = "";
+    private string subtipoPerfil = "";
+    private int centroCustoId;
+    private string senha = "";
+    private bool ativo = true;
+
+    private List<CentroCusto>? centrosCusto;
+    private Usuario? usuarioEditando;
+
+    protected override async Task OnInitializedAsync()
+    {
+        if (!UserSession.IsAuthenticated)
+        {
+            Nav.NavigateTo("/login", forceLoad: true);
+            return;
+        }
+
+        var perfilLogado = UserSession.UsuarioLogado!.Perfil;
+        eGestorComum = perfilLogado == "Gestor Primário" || perfilLogado == "Gestor Secundário";
+        bloquearPerfil = eGestorComum || perfilLogado == "Gestor Central Padrão";
+        isAdmin = perfilLogado == "Admin" || perfilLogado.StartsWith("Gestor Central");
+
+        centrosCusto = await Db.CentrosCusto.OrderBy(s => s.Nome).ToListAsync();
+
+        int idUsuario = UserSession.UsuarioLogado!.Id;
+        usuarioEditando = await Db.Usuarios.FindAsync(idUsuario);
+
+        if (usuarioEditando is null)
+        {
+            Nav.NavigateTo("/login", forceLoad: true);
+            return;
+        }
+
+        nome = usuarioEditando.Nome;
+        email = usuarioEditando.Email;
+        ponto = usuarioEditando.Ponto;
+        cpf = usuarioEditando.Cpf;
+
+        if (usuarioEditando.Perfil == "Admin" || usuarioEditando.Perfil == "Colaborador")
+        {
+            grupoPerfil = usuarioEditando.Perfil;
+            subtipoPerfil = "";
+        }
+        else if (usuarioEditando.Perfil.StartsWith("Gestor Central "))
+        {
+            grupoPerfil = "Gestor Central";
+            subtipoPerfil = usuarioEditando.Perfil.Replace("Gestor Central ", "");
+        }
+        else if (usuarioEditando.Perfil.StartsWith("Gestor "))
+        {
+            grupoPerfil = "Gestor";
+            subtipoPerfil = usuarioEditando.Perfil.Replace("Gestor ", "");
+        }
+
+        centroCustoId = usuarioEditando.CentroCustoId ?? 0;
+        ativo = usuarioEditando.Ativo;
+    }
+
+    private void OnGrupoPerfilChanged()
+    {
+        subtipoPerfil = "";
+        if (grupoPerfil == "Admin")
+        {
+            centroCustoId = 0;
+        }
+    }
+
+    private void OnSubtipoPerfilChanged()
+    {
+        if (grupoPerfil == "Gestor Central" && subtipoPerfil == "Padrão")
+        {
+            centroCustoId = 0;
+        }
+    }
+
+    private async Task Salvar()
+    {
+        erro = null;
+        sucesso = null;
+        salvando = true;
+
+        try
+        {
+            // Validações
+            if (string.IsNullOrWhiteSpace(nome) || string.IsNullOrWhiteSpace(ponto) || string.IsNullOrWhiteSpace(grupoPerfil))
+            {
+                erro = "Preencha Nome, Ponto e Perfil.";
+                return;
+            }
+
+            if ((grupoPerfil == "Gestor" || grupoPerfil == "Gestor Central") && string.IsNullOrWhiteSpace(subtipoPerfil))
+            {
+                erro = "Selecione o tipo específico de Gestor.";
+                return;
+            }
+
+            if (grupoPerfil == "Admin" && UserSession.UsuarioLogado!.Perfil != "Admin")
+            {
+                erro = "Apenas administradores podem criar ou editar perfis de Admin.";
+                return;
+            }
+
+            if (grupoPerfil == "Gestor Central" && subtipoPerfil == "Ateste")
+            {
+                if (UserSession.UsuarioLogado!.Perfil != "Admin" && UserSession.UsuarioLogado!.Perfil != "Gestor Central Ateste")
+                {
+                    erro = "Apenas administradores e Gestores Centrais Ateste podem criar ou editar perfis de Gestor Central Ateste.";
+                    return;
+                }
+            }
+
+            var isGestorCentralPadrao = grupoPerfil == "Gestor Central" && subtipoPerfil == "Padrão";
+
+            if (grupoPerfil != "Admin" && !isGestorCentralPadrao && centroCustoId <= 0)
+            {
+                erro = "É obrigatório selecionar um Centro de Custo para este perfil.";
+                return;
+            }
+
+            if (grupoPerfil == "Admin" || isGestorCentralPadrao)
+            {
+                centroCustoId = 0; // Admin e Gestor Central Padrão não precisam de centro de custo
+            }
+
+            var perfilFinal = grupoPerfil;
+            if (!string.IsNullOrWhiteSpace(subtipoPerfil))
+            {
+                perfilFinal = $"{grupoPerfil} {subtipoPerfil}";
+            }
+
+            // Verificar ponto duplicado
+            var idAtual = usuarioEditando?.Id ?? 0;
+            var pontoDuplicado = await Db.Usuarios
+                .AnyAsync(u => u.Ponto == ponto && u.Id != idAtual);
+            if (pontoDuplicado)
+            {
+                erro = $"Já existe um usuário com o ponto \"{ponto}\".";
+                return;
+            }
+
+            if (usuarioEditando is not null)
+            {
+                usuarioEditando.Nome = nome;
+                usuarioEditando.Email = email ?? "";
+                usuarioEditando.Cpf = cpf;
+
+                if (!eGestorComum)
+                {
+                    usuarioEditando.Ponto = ponto;
+                    usuarioEditando.CentroCustoId = centroCustoId > 0 ? centroCustoId : null;
+                    usuarioEditando.Ativo = ativo;
+                }
+
+                if (!bloquearPerfil)
+                {
+                    usuarioEditando.Perfil = perfilFinal;
+                }
+
+                if (!string.IsNullOrWhiteSpace(senha))
+                {
+                    usuarioEditando.SenhaHash = UserSession.HashSenha(usuarioEditando, senha);
+                }
+
+                await Db.SaveChangesAsync();
+
+                // Atualizar sessão com o nome atualizado para refletir no Menu Superior
+                UserSession.UsuarioLogado!.Nome = usuarioEditando.Nome;
+
+                sucesso = "Informações atualizadas com sucesso!";
+            }
+        }
+        catch (Exception ex)
+        {
+            erro = $"Erro ao salvar: {ex.Message}";
+        }
+        finally
+        {
+            salvando = false;
+        }
+    }
+}
