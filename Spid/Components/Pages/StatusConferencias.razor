@@ -49,13 +49,13 @@ else
                 </select>
             </div>
             <!-- Cards de resumo na mesma linha -->
-            @if (setoresStatus is not null && setoresStatus.Count > 0)
+            @if (centrosCustoStatus is not null && centrosCustoStatus.Count > 0)
             {
                 <div class="flex-grow-1 d-flex gap-3">
                     <div class="flex-fill">
                         <div class="card text-center border-success h-100">
                             <div class="card-body py-2">
-                                <div class="fs-3 fw-bold text-success">@setoresStatus.Count(s => s.Confirmado && s.Pendentes == 0)</div>
+                                <div class="fs-3 fw-bold text-success">@centrosCustoStatus.Count(s => s.Confirmado && s.Pendentes == 0)</div>
                                 <small class="text-muted">Centros de Custo Confirmados</small>
                             </div>
                         </div>
@@ -63,7 +63,7 @@ else
                     <div class="flex-fill">
                         <div class="card text-center border-warning h-100">
                             <div class="card-body py-2">
-                                <div class="fs-3 fw-bold text-warning">@setoresStatus.Count(s => !s.Confirmado || s.Pendentes > 0)</div>
+                                <div class="fs-3 fw-bold text-warning">@centrosCustoStatus.Count(s => !s.Confirmado || s.Pendentes > 0)</div>
                                 <small class="text-muted">Centros de Custo Pendentes</small>
                             </div>
                         </div>
@@ -73,11 +73,11 @@ else
         </div>
     </div>
 
-    @if (setoresStatus is null)
+    @if (centrosCustoStatus is null)
     {
         <p class="text-muted">Carregando...</p>
     }
-    else if (setoresStatus.Count == 0)
+    else if (centrosCustoStatus.Count == 0)
     {
         <div class="alert alert-info">Nenhum centro de custo com viagens neste mês.</div>
     }
@@ -92,7 +92,7 @@ else
                         <th class="text-center">Pendentes</th>
                         <th class="text-center">OK</th>
                         <th class="text-center">Contestadas</th>
-                        <th class="text-center">Gestor Principal</th>
+                        <th class="text-center">Gestor(a) Responsável</th>
                         <th class="text-center" role="button" style="cursor:pointer;" @onclick="AlternarOrdemStatus">
                             Status @(ordenarStatusAsc ? "▲" : "▼")
                         </th>
@@ -100,10 +100,10 @@ else
                     </tr>
                 </thead>
                 <tbody>
-                    @foreach (var s in setoresStatus)
+                    @foreach (var s in centrosCustoStatus)
                     {
                         <tr>
-                            <td class="text-center"><strong>@s.SetorNome</strong></td>
+                            <td class="text-center"><strong>@s.CentroCustoNome</strong></td>
                             <td class="text-center">
                                 @if (s.TotalViagens > 0)
                                 {
@@ -219,7 +219,7 @@ else
                             "Pendente" => "Viagens Pendentes",
                             _ => "Todas as Viagens"
                         })
-                        — @detalheSetorNome
+                        — @detalheCentroCustoNome
                     </h5>
                     <button type="button" class="btn-close" @onclick="FecharDetalhes"></button>
                 </div>
@@ -314,7 +314,7 @@ else
     private int mesSelecionado = DateTime.Now.Month;
     private int anoSelecionado = DateTime.Now.Year;
     private List<int> anosDisponiveis = new();
-    private List<SetorStatusDto>? setoresStatus;
+    private List<CentroCustoStatusDto>? centrosCustoStatus;
 
     private async Task MesAnterior()
     {
@@ -337,7 +337,7 @@ else
 
     // Detalhes modal
     private List<Viagem>? detalheViagens;
-    private string detalheSetorNome = "";
+    private string detalheCentroCustoNome = "";
     private string detalheStatus = "";
 
     protected override async Task OnInitializedAsync()
@@ -348,7 +348,7 @@ else
             return;
         }
 
-        isAdmin = UserSession.UsuarioLogado!.Perfil == "Admin";
+        isAdmin = UserSession.UsuarioLogado!.Perfil == "Admin" || UserSession.UsuarioLogado!.Perfil.StartsWith("Gestor Central");
         if (!isAdmin) return;
 
         anosDisponiveis = await Db.Viagens.Select(v => v.DataViagem.Year).Distinct().OrderByDescending(y => y).ToListAsync();
@@ -366,14 +366,14 @@ else
         var mesInicio = new DateOnly(ano, mes, 1);
         var mesFim = mesInicio.AddMonths(1);
 
-        // Viagens agrupadas por setor
-        var viagensPorSetor = await Db.Viagens
+        // Viagens agrupadas por centro de custo
+        var viagensPorCentroCusto = await Db.Viagens
             .Where(v => v.DataViagem >= mesInicio && v.DataViagem < mesFim)
-            .GroupBy(v => new { v.SetorId, v.Setor.Nome })
+            .GroupBy(v => new { v.CentroCustoId, v.CentroCusto.Nome })
             .Select(g => new
             {
-                g.Key.SetorId,
-                SetorNome = g.Key.Nome,
+                g.Key.CentroCustoId,
+                CentroCustoNome = g.Key.Nome,
                 Total = g.Count(),
                 Pendentes = g.Count(v => v.StatusConferenciaGestor == "Pendente"),
                 Aprovadas = g.Count(v => v.StatusConferenciaGestor == "OK"),
@@ -385,25 +385,39 @@ else
         var confirmacoes = await Db.ConferenciasMensais
             .Where(c => c.Ano == ano && c.Mes == mes)
             .Include(c => c.Usuario)
-            .ToDictionaryAsync(c => c.SetorId);
+            .ToDictionaryAsync(c => c.CentroCustoId);
 
-        // Gestor Principal por setor
-        var gestorPrincipalPorSetor = await Db.Usuarios
-            .Where(u => u.SetorId.HasValue && u.Perfil == "Gestor Principal" && u.Ativo)
-            .ToDictionaryAsync(u => u.SetorId!.Value, u => u.Nome);
+        // Gestor responsável pela conferência, respeitando a hierarquia:
+        // 1. Gestor Central Ateste
+        // 2. Gestor Primário
+        // 3. Gestor Secundário
+        var gestoresAptos = await Db.Usuarios
+            .Where(u => u.CentroCustoId.HasValue && u.Ativo && 
+                        (u.Perfil == "Gestor Central Ateste" || u.Perfil == "Gestor Primário" || u.Perfil == "Gestor Secundário"))
+            .Select(u => new { u.CentroCustoId, u.Nome, u.Perfil })
+            .ToListAsync();
 
-        setoresStatus = viagensPorSetor.Select(v =>
+        var gestorPorCentroCusto = gestoresAptos
+            .GroupBy(u => u.CentroCustoId!.Value)
+            .ToDictionary(
+                g => g.Key, 
+                g => g.OrderBy(u => u.Perfil == "Gestor Central Ateste" ? 1 : 
+                                    u.Perfil == "Gestor Primário" ? 2 : 3)
+                      .First().Nome
+            );
+
+        centrosCustoStatus = viagensPorCentroCusto.Select(v =>
         {
-            var conf = confirmacoes.GetValueOrDefault(v.SetorId);
-            return new SetorStatusDto
+            var conf = confirmacoes.GetValueOrDefault(v.CentroCustoId);
+            return new CentroCustoStatusDto
             {
-                SetorId = v.SetorId,
-                SetorNome = v.SetorNome,
+                CentroCustoId = v.CentroCustoId,
+                CentroCustoNome = v.CentroCustoNome,
                 TotalViagens = v.Total,
                 Pendentes = v.Pendentes,
                 Aprovadas = v.Aprovadas,
                 Contestadas = v.Contestadas,
-                GestorPrincipal = gestorPrincipalPorSetor.GetValueOrDefault(v.SetorId) ?? "",
+                GestorPrincipal = gestorPorCentroCusto.GetValueOrDefault(v.CentroCustoId) ?? "",
                 Confirmado = conf is not null,
                 ConfirmadoPor = conf?.Usuario.Nome,
                 DataConfirmacao = conf?.DataConfirmacao
@@ -424,9 +438,9 @@ else
 
     private void OrdenarStatus()
     {
-        if (setoresStatus is null) return;
+        if (centrosCustoStatus is null) return;
 
-        int GetStatusUrgencia(SetorStatusDto s)
+        int GetStatusUrgencia(CentroCustoStatusDto s)
         {
             if (s.Confirmado && s.Pendentes > 0) return 1;
             if (s.Confirmado) return 3;
@@ -434,21 +448,21 @@ else
             return 0;
         }
 
-        setoresStatus = ordenarStatusAsc
-            ? setoresStatus.OrderBy(GetStatusUrgencia).ThenBy(s => s.SetorNome).ToList()
-            : setoresStatus.OrderByDescending(GetStatusUrgencia).ThenBy(s => s.SetorNome).ToList();
+        centrosCustoStatus = ordenarStatusAsc
+            ? centrosCustoStatus.OrderBy(GetStatusUrgencia).ThenBy(s => s.CentroCustoNome).ToList()
+            : centrosCustoStatus.OrderByDescending(GetStatusUrgencia).ThenBy(s => s.CentroCustoNome).ToList();
     }
 
 
 
-    private Task VerOK(SetorStatusDto setor) => VerDetalhes(setor, "OK");
-    private Task VerContestadas(SetorStatusDto setor) => VerDetalhes(setor, "Contestada");
-    private Task VerPendentes(SetorStatusDto setor) => VerDetalhes(setor, "Pendente");
-    private Task VerTodas(SetorStatusDto setor) => VerDetalhes(setor, "Todas");
+    private Task VerOK(CentroCustoStatusDto centroCusto) => VerDetalhes(centroCusto, "OK");
+    private Task VerContestadas(CentroCustoStatusDto centroCusto) => VerDetalhes(centroCusto, "Contestada");
+    private Task VerPendentes(CentroCustoStatusDto centroCusto) => VerDetalhes(centroCusto, "Pendente");
+    private Task VerTodas(CentroCustoStatusDto centroCusto) => VerDetalhes(centroCusto, "Todas");
 
-    private async Task VerDetalhes(SetorStatusDto setor, string status)
+    private async Task VerDetalhes(CentroCustoStatusDto centroCusto, string status)
     {
-        detalheSetorNome = setor.SetorNome;
+        detalheCentroCustoNome = centroCusto.CentroCustoNome;
         detalheStatus = status;
 
         var mesInicio = new DateOnly(anoSelecionado, mesSelecionado, 1);
@@ -457,7 +471,7 @@ else
         var query = Db.Viagens
             .Include(v => v.Colaborador)
             .Include(v => v.Parceiro)
-            .Where(v => v.SetorId == setor.SetorId
+            .Where(v => v.CentroCustoId == centroCusto.CentroCustoId
                      && v.DataViagem >= mesInicio && v.DataViagem < mesFim);
 
         if (status != "Todas")
@@ -475,10 +489,10 @@ else
         detalheViagens = null;
     }
 
-    private class SetorStatusDto
+    private class CentroCustoStatusDto
     {
-        public int SetorId { get; set; }
-        public string SetorNome { get; set; } = "";
+        public int CentroCustoId { get; set; }
+        public string CentroCustoNome { get; set; } = "";
         public int TotalViagens { get; set; }
         public int Pendentes { get; set; }
         public int Aprovadas { get; set; }

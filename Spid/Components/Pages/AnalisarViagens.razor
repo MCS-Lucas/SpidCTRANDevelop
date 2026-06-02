@@ -154,6 +154,7 @@ else
                     <th class="text-center">Colaborador</th>
                     <th class="text-center">Origem</th>
                     <th class="text-center">Destino</th>
+                    <th class="text-center">Motivo da Viagem</th>
                     <th class="text-center">Parceiro</th>
                     <th class="text-center">Valor Final</th>
                     <th class="text-center">Status</th>
@@ -175,6 +176,7 @@ else
                         <td class="text-center">@v.Colaborador.Nome</td>
                         <td class="text-center">@v.Origem</td>
                         <td class="text-center">@v.Destino</td>
+                        <td class="text-center">@v.Motivo</td>
                         <td class="text-center">@v.Parceiro.Nome</td>
                         <td class="text-center">R$ @v.ValorFinal.ToString("N2")</td>
                         <td class="text-center">
@@ -484,7 +486,7 @@ else
 
     private async Task CarregarViagens()
     {
-        var setorId = UserSession.UsuarioLogado!.SetorId;
+        var centroCustoId = UserSession.UsuarioLogado!.CentroCustoId;
 
         // Filtro por mês/ano
         var mesInicio = new DateOnly(anoSelecionado, mesSelecionado, 1);
@@ -493,13 +495,13 @@ else
         var query = Db.Viagens
             .Include(v => v.Colaborador)
             .Include(v => v.Parceiro)
-            .Include(v => v.Setor)
+            .Include(v => v.CentroCusto)
             .Where(v => v.DataViagem >= mesInicio && v.DataViagem < mesFim);
 
-        // Se o gestor tem setor, filtra; admin vê tudo
-        if (setorId.HasValue)
+        // Se o gestor tem centro de custo, filtra; admin vê tudo
+        if (centroCustoId.HasValue)
         {
-            query = query.Where(v => v.SetorId == setorId.Value);
+            query = query.Where(v => v.CentroCustoId == centroCustoId.Value);
         }
 
         viagens = await query
@@ -513,12 +515,12 @@ else
 
     private async Task VerificarConfirmacao()
     {
-        var setorId = UserSession.UsuarioLogado!.SetorId;
-        if (!setorId.HasValue || viagens is null) return;
+        var centroCustoId = UserSession.UsuarioLogado!.CentroCustoId;
+        if (!centroCustoId.HasValue || viagens is null) return;
 
         var conferencia = await Db.ConferenciasMensais
             .Include(c => c.Usuario)
-            .FirstOrDefaultAsync(c => c.SetorId == setorId.Value && c.Ano == anoSelecionado && c.Mes == mesSelecionado);
+            .FirstOrDefaultAsync(c => c.CentroCustoId == centroCustoId.Value && c.Ano == anoSelecionado && c.Mes == mesSelecionado);
 
         jaConfirmou = conferencia is not null;
         confirmadoPorNome = conferencia?.Usuario.Nome;
@@ -658,14 +660,14 @@ else
         viagemReverterConfirmar = null;
     }
 
-    /// Remove a confirmação existente deste setor/mês para forçar reconfirmação
+    /// Remove a confirmação existente deste centro de custo/mês para forçar reconfirmação
     private async Task InvalidarConfirmacao()
     {
-        var setorId = UserSession.UsuarioLogado!.SetorId;
-        if (!setorId.HasValue) return;
+        var centroCustoId = UserSession.UsuarioLogado!.CentroCustoId;
+        if (!centroCustoId.HasValue) return;
 
         var conf = await Db.ConferenciasMensais
-            .FirstOrDefaultAsync(c => c.SetorId == setorId.Value && c.Ano == anoSelecionado && c.Mes == mesSelecionado);
+            .FirstOrDefaultAsync(c => c.CentroCustoId == centroCustoId.Value && c.Ano == anoSelecionado && c.Mes == mesSelecionado);
 
         if (conf is not null)
         {
@@ -676,15 +678,15 @@ else
 
     private async Task ConfirmarMes()
     {
-        var setorId = UserSession.UsuarioLogado!.SetorId;
-        if (!setorId.HasValue) return;
+        var centroCustoId = UserSession.UsuarioLogado!.CentroCustoId;
+        if (!centroCustoId.HasValue) return;
 
         confirmando = true;
         try
         {
             var conferencia = new ConferenciaMensal
             {
-                SetorId = setorId.Value,
+                CentroCustoId = centroCustoId.Value,
                 Ano = anoSelecionado,
                 Mes = mesSelecionado,
                 UsuarioId = UserSession.UsuarioLogado!.Id,

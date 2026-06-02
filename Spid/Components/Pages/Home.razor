@@ -27,26 +27,26 @@ else
         <span class="dash-title"><Icon Name="chart-pie" Size="24" Class="page-header-icon" /> Visão Geral</span>
 
         <div class="d-flex align-items-center gap-2 flex-wrap">
-            @if (setores.Count > 0)
+            @if (centrosCusto.Count > 0)
             {
                 <div class="d-flex align-items-center gap-1">
                     @if (isAdmin)
                     {
-                        <button class="filter-btn" @onclick="SetorAnterior" disabled="@(!TemSetorAnterior())">&#9664;</button>
+                        <button class="filter-btn" @onclick="CentroCustoAnterior" disabled="@(!TemCentroCustoAnterior())">&#9664;</button>
                     }
-                    <select class="setor-select" @bind="setorSelecionadoId" @bind:after="CarregarDados" disabled="@(!isAdmin)">
+                    <select class="setor-select" @bind="centroCustoSelecionadoId" @bind:after="CarregarDados" disabled="@(!isAdmin)">
                         @if (isAdmin)
                         {
                             <option value="">Todos os Centros de Custo</option>
                         }
-                        @foreach (var s in setores)
+                        @foreach (var s in centrosCusto)
                         {
                             <option value="@s.Id">@s.Nome</option>
                         }
                     </select>
                     @if (isAdmin)
                     {
-                        <button class="filter-btn" @onclick="SetorSeguinte" disabled="@(!TemSetorSeguinte())">&#9654;</button>
+                        <button class="filter-btn" @onclick="CentroCustoSeguinte" disabled="@(!TemCentroCustoSeguinte())">&#9654;</button>
                     }
                 </div>
             }
@@ -174,12 +174,12 @@ else
     // ── Estado ──────────────────────────────────────────────
     private bool carregando = true;
     private bool isAdmin;
-    private int? setorSelecionadoId;
+    private int? centroCustoSelecionadoId;
 
     private int mesSelecionado = DateTime.Now.Month;
     private int anoSelecionado = DateTime.Now.Year;
 
-    private List<Setor> setores = new();
+    private List<CentroCusto> centrosCusto = new();
     private List<int> anosDisponiveis = new();
 
     // ── Navegação de Data ────────────────────────────────────
@@ -201,44 +201,44 @@ else
         }
     }
 
-    private bool TemSetorAnterior()
+    private bool TemCentroCustoAnterior()
     {
-        if (!isAdmin || setores.Count == 0) return false;
-        return setorSelecionadoId != null;
+        if (!isAdmin || centrosCusto.Count == 0) return false;
+        return centroCustoSelecionadoId != null;
     }
 
-    private bool TemSetorSeguinte()
+    private bool TemCentroCustoSeguinte()
     {
-        if (!isAdmin || setores.Count == 0) return false;
-        if (setorSelecionadoId == null) return true;
-        var index = setores.FindIndex(s => s.Id == setorSelecionadoId);
-        return index >= 0 && index < setores.Count - 1;
+        if (!isAdmin || centrosCusto.Count == 0) return false;
+        if (centroCustoSelecionadoId == null) return true;
+        var index = centrosCusto.FindIndex(s => s.Id == centroCustoSelecionadoId);
+        return index >= 0 && index < centrosCusto.Count - 1;
     }
 
-    private async Task SetorAnterior()
+    private async Task CentroCustoAnterior()
     {
-        if (!TemSetorAnterior()) return;
+        if (!TemCentroCustoAnterior()) return;
 
-        var index = setores.FindIndex(s => s.Id == setorSelecionadoId);
+        var index = centrosCusto.FindIndex(s => s.Id == centroCustoSelecionadoId);
         if (index == 0)
-            setorSelecionadoId = null;
+            centroCustoSelecionadoId = null;
         else if (index > 0)
-            setorSelecionadoId = setores[index - 1].Id;
+            centroCustoSelecionadoId = centrosCusto[index - 1].Id;
 
         await CarregarDados();
     }
 
-    private async Task SetorSeguinte()
+    private async Task CentroCustoSeguinte()
     {
-        if (!TemSetorSeguinte()) return;
+        if (!TemCentroCustoSeguinte()) return;
 
-        if (setorSelecionadoId == null)
-            setorSelecionadoId = setores[0].Id;
+        if (centroCustoSelecionadoId == null)
+            centroCustoSelecionadoId = centrosCusto[0].Id;
         else
         {
-            var index = setores.FindIndex(s => s.Id == setorSelecionadoId);
-            if (index >= 0 && index < setores.Count - 1)
-                setorSelecionadoId = setores[index + 1].Id;
+            var index = centrosCusto.FindIndex(s => s.Id == centroCustoSelecionadoId);
+            if (index >= 0 && index < centrosCusto.Count - 1)
+                centroCustoSelecionadoId = centrosCusto[index + 1].Id;
         }
 
         await CarregarDados();
@@ -272,21 +272,21 @@ else
         }
 
         var perfil = UserSession.UsuarioLogado!.Perfil;
-        isAdmin = perfil == "Admin";
+        isAdmin = perfil == "Admin" || perfil.StartsWith("Gestor Central");
 
         // Contexto próprio — isolado do DbContext scoped do circuito
         await using (var db = DbFactory.CreateDbContext())
         {
-            setores = await db.Setores.OrderBy(s => s.Nome).ToListAsync();
+            centrosCusto = await db.CentrosCusto.OrderBy(s => s.Nome).ToListAsync();
         }
 
         if (isAdmin)
         {
-            setorSelecionadoId = null; // Padrão: Todos os Setores
+            centroCustoSelecionadoId = null; // Padrão: Todos os Centros de Custo
         }
         else
         {
-            setorSelecionadoId = UserSession.UsuarioLogado.SetorId;
+            centroCustoSelecionadoId = UserSession.UsuarioLogado.CentroCustoId;
         }
 
         await using (var db = DbFactory.CreateDbContext())
@@ -332,8 +332,8 @@ else
             .Include(v => v.Parceiro)
             .Where(v => v.DataViagem >= mesInicio && v.DataViagem < mesFim);
 
-        if (setorSelecionadoId.HasValue)
-            query = query.Where(v => v.SetorId == setorSelecionadoId.Value);
+        if (centroCustoSelecionadoId.HasValue)
+            query = query.Where(v => v.CentroCustoId == centroCustoSelecionadoId.Value);
 
         var viagens = await query.ToListAsync();
 
