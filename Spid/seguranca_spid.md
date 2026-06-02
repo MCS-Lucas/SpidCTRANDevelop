@@ -100,7 +100,7 @@ O FrotiX configura `MaxRequestBodySize = 100MB` e `MaxModelValidationErrors = 50
 ## ⚠️ Pontos Intermediários
 
 ### Perfis como Strings
-O Spid usa strings hardcoded (`"Admin"`, `"Gestor Principal"`, `"Gestor Secundário"`) em vez do sistema de Roles do Identity. Isso funciona, mas:
+O Spid usa strings hardcoded (`"Admin"`, `"Gestor Primário"`, `"Gestor Secundário"`) em vez do sistema de Roles do Identity. Isso funciona, mas:
 - É propenso a typos
 - Dificulta renames futuros
 - Não tem gestão administrativa (criar/editar perfis pela UI)
