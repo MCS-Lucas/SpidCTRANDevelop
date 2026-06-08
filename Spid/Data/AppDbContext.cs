@@ -14,6 +14,7 @@ public class AppDbContext : DbContext
     public DbSet<Recurso> Recursos => Set<Recurso>();
     public DbSet<PerfilRecurso> PerfisRecurso => Set<PerfilRecurso>();
     public DbSet<ConferenciaMensal> ConferenciasMensais => Set<ConferenciaMensal>();
+    public DbSet<EncerramentoMensal> EncerramentosMensais => Set<EncerramentoMensal>();
     public DbSet<ImportacaoLog> ImportacoesLog => Set<ImportacaoLog>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
@@ -97,5 +98,22 @@ public class AppDbContext : DbContext
         modelBuilder.Entity<ConferenciaMensal>()
             .HasIndex(c => new { c.CentroCustoId, c.Ano, c.Mes })
             .IsUnique();
+
+        // EncerramentoMensal: índice único por Ano+Mês (global)
+        modelBuilder.Entity<EncerramentoMensal>()
+            .HasIndex(e => new { e.Ano, e.Mes })
+            .IsUnique();
+
+        modelBuilder.Entity<EncerramentoMensal>()
+            .HasOne(e => e.EncerradoPor)
+            .WithMany()
+            .HasForeignKey(e => e.EncerradoPorId)
+            .OnDelete(DeleteBehavior.Restrict);
+
+        modelBuilder.Entity<EncerramentoMensal>()
+            .HasOne(e => e.LiberadoPor)
+            .WithMany()
+            .HasForeignKey(e => e.LiberadoPorId)
+            .OnDelete(DeleteBehavior.Restrict);
     }
 }
