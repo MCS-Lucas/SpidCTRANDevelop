@@ -13,7 +13,7 @@ public class Usuario
     // Ponto do usuário, usado no login
     public string Ponto { get; set; } = null!;
 
-    // Perfil: "Admin", "Gestor Primário", "Gestor Secundário", "Gestor Central Padrão" ou "Gestor Central Ateste"
+    // Perfil: "Admin", "Gestor Titular", "Gestor Substituto", "Gestor Central Padrão" ou "Gestor Central Ateste"
     public string Perfil { get; set; } = null!;
 
     // Hash da senha (gerado via PasswordHasher<Usuario>)

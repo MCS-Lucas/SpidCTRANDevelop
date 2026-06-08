@@ -456,11 +456,11 @@ else
 
         // Gestor responsável pela conferência, respeitando a hierarquia:
         // 1. Gestor Central Ateste
-        // 2. Gestor Primário
-        // 3. Gestor Secundário
+        // 2. Gestor Titular
+        // 3. Gestor Substituto
         var gestoresAptos = await Db.Usuarios
             .Where(u => u.CentroCustoId.HasValue && u.Ativo && 
-                        (u.Perfil == "Gestor Central Ateste" || u.Perfil == "Gestor Primário" || u.Perfil == "Gestor Secundário"))
+                        (u.Perfil == "Gestor Central Ateste" || u.Perfil == "Gestor Titular" || u.Perfil == "Gestor Substituto"))
             .Select(u => new { u.CentroCustoId, u.Nome, u.Perfil })
             .ToListAsync();
 
@@ -469,7 +469,7 @@ else
             .ToDictionary(
                 g => g.Key, 
                 g => g.OrderBy(u => u.Perfil == "Gestor Central Ateste" ? 1 : 
-                                    u.Perfil == "Gestor Primário" ? 2 : 3)
+                                    u.Perfil == "Gestor Titular" ? 2 : 3)
                       .First().Nome
             );
 

@@ -53,8 +53,8 @@ else
                     <option value="Todos">Todos</option>
                     @if (perfilSelecionado == "Gestores")
                     {
-                        <option value="Primário">Primário(s)</option>
-                        <option value="Secundário">Secundário(s)</option>
+                        <option value="Titular">Titular(es)</option>
+                        <option value="Substituto">Substituto(s)</option>
                     }
                     else if (perfilSelecionado == "Gestores Centrais")
                     {
@@ -196,7 +196,7 @@ else
         
         if (perfilLogado == "Gestor Central Padrão")
         {
-            return alvo.Perfil == "Gestor Primário" || alvo.Perfil == "Gestor Secundário";
+            return alvo.Perfil == "Gestor Titular" || alvo.Perfil == "Gestor Substituto";
         }
         
         return false;
@@ -214,7 +214,7 @@ else
             if (perfilSelecionado == "Gestores")
             {
                 if (subtipoSelecionado == "Todos")
-                    query = query.Where(u => u.Perfil == "Gestor Primário" || u.Perfil == "Gestor Secundário");
+                    query = query.Where(u => u.Perfil == "Gestor Titular" || u.Perfil == "Gestor Substituto");
                 else
                     query = query.Where(u => u.Perfil == $"Gestor {subtipoSelecionado}");
             }

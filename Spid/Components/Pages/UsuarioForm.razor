@@ -83,8 +83,8 @@ else
                             <option value="">Selecione...</option>
                             @if (grupoPerfil == "Gestor")
                             {
-                                <option value="Primário">Primário</option>
-                                <option value="Secundário">Secundário</option>
+                                <option value="Titular">Titular</option>
+                                <option value="Substituto">Substituto</option>
                             }
                             else if (grupoPerfil == "Gestor Central")
                             {
@@ -245,7 +245,7 @@ else
 
             bool podeEditar = eEleMesmo || perfilLogado == "Admin" ||
                              (perfilLogado == "Gestor Central Ateste" && perfilAlvo != "Admin" && perfilAlvo != "Gestor Central Ateste") ||
-                             (perfilLogado == "Gestor Central Padrão" && (perfilAlvo == "Gestor Primário" || perfilAlvo == "Gestor Secundário"));
+                             (perfilLogado == "Gestor Central Padrão" && (perfilAlvo == "Gestor Titular" || perfilAlvo == "Gestor Substituto"));
             
             if (!podeEditar)
             {
@@ -352,9 +352,9 @@ else
             }
 
             bool eEleMesmoNoSalvar = editando && usuarioEditando?.Id == UserSession.UsuarioLogado?.Id;
-            if (UserSession.UsuarioLogado!.Perfil == "Gestor Central Padrão" && perfilFinal != "Gestor Primário" && perfilFinal != "Gestor Secundário" && !eEleMesmoNoSalvar)
+            if (UserSession.UsuarioLogado!.Perfil == "Gestor Central Padrão" && perfilFinal != "Gestor Titular" && perfilFinal != "Gestor Substituto" && !eEleMesmoNoSalvar)
             {
-                erro = "Gestores Centrais Padrão só podem gerenciar e criar perfis de Gestor Primário e Secundário.";
+                erro = "Gestores Centrais Padrão só podem gerenciar e criar perfis de Gestor Titular e Substituto.";
                 return;
             }
 

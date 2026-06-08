@@ -553,7 +553,7 @@ else
         // Verificar encerramento do mês para gestores comuns
         mesEncerradoParaGestor = false;
         nomeQuemEncerrou = null;
-        if (perfil == "Gestor Primário" || perfil == "Gestor Secundário")
+        if (perfil == "Gestor Titular" || perfil == "Gestor Substituto")
         {
             var encerramento = await Db.EncerramentosMensais
                 .Include(e => e.EncerradoPor)

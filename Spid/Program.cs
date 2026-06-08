@@ -536,8 +536,8 @@ static async Task RunDatabaseSetupSafelyAsync(IServiceProvider rootServices, ILo
 
             db.PerfisRecurso.AddRange(
                 new PerfilRecurso { Perfil = "Admin", RecursoId = importar.Id },
-                new PerfilRecurso { Perfil = "Gestor Primário", RecursoId = analisar.Id },
-                new PerfilRecurso { Perfil = "Gestor Secundário", RecursoId = analisar.Id }
+                new PerfilRecurso { Perfil = "Gestor Titular", RecursoId = analisar.Id },
+                new PerfilRecurso { Perfil = "Gestor Substituto", RecursoId = analisar.Id }
             );
 
             await db.SaveChangesAsync();
@@ -550,7 +550,7 @@ static async Task RunDatabaseSetupSafelyAsync(IServiceProvider rootServices, ILo
         if (gestoresAntigos.Count > 0)
         {
             foreach (var u in gestoresAntigos)
-                u.Perfil = "Gestor Primário";
+                u.Perfil = "Gestor Titular";
 
             await db.SaveChangesAsync();
         }
@@ -562,7 +562,7 @@ static async Task RunDatabaseSetupSafelyAsync(IServiceProvider rootServices, ILo
         if (perfisAntigos.Count > 0)
         {
             foreach (var pr in perfisAntigos)
-                pr.Perfil = "Gestor Primário";
+                pr.Perfil = "Gestor Titular";
 
             await db.SaveChangesAsync();
         }
@@ -573,14 +573,14 @@ static async Task RunDatabaseSetupSafelyAsync(IServiceProvider rootServices, ILo
         if (analisarRecurso is not null)
         {
             var jaTemSecundario = await db.PerfisRecurso.AnyAsync(pr =>
-                pr.Perfil == "Gestor Secundário" &&
+                pr.Perfil == "Gestor Substituto" &&
                 pr.RecursoId == analisarRecurso.Id);
 
             if (!jaTemSecundario)
             {
                 db.PerfisRecurso.Add(new PerfilRecurso
                 {
-                    Perfil = "Gestor Secundário",
+                    Perfil = "Gestor Substituto",
                     RecursoId = analisarRecurso.Id
                 });
 
