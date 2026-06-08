@@ -27,9 +27,24 @@
 
 <PageTitle>Atestar Viagens — SPID</PageTitle>
 
-<h3 class="mb-4">
-    <Icon Name="magnifying-glass-chart" Size="24" Class="page-header-icon" /> Atestar Viagens
-</h3>
+<div class="d-flex flex-wrap align-items-center justify-content-between gap-3 mb-4">
+    <h3 class="mb-0">
+        <Icon Name="magnifying-glass-chart" Size="24" Class="page-header-icon" /> Atestar Viagens
+    </h3>
+
+    @if (isAdmin && centrosCusto.Count > 0)
+    {
+        <div class="d-flex align-items-center gap-2 flex-wrap">
+            <select class="setor-select" @bind="centroCustoSelecionadoId" @bind:after="CarregarViagens" disabled="@(!isAdmin)">
+                <option value="">Selecione o Centro de Custo</option>
+                @foreach (var c in centrosCusto)
+                {
+                    <option value="@c.Id">@c.Nome</option>
+                }
+            </select>
+        </div>
+    }
+</div>
 
 @if (!temPermissao)
 {
@@ -90,6 +105,19 @@ else
             </div>
         </div>
     </div>
+
+    @if (mesEncerradoParaGestor)
+    {
+        <div class="alert alert-danger d-flex align-items-center gap-2">
+            <Icon Name="lock" Size="16" />
+            <span>
+                <strong>Mês encerrado!</strong> O mês de
+                @System.Globalization.CultureInfo.GetCultureInfo("pt-BR").DateTimeFormat.GetMonthName(mesSelecionado)/@anoSelecionado
+                foi encerrado@(nomeQuemEncerrou is not null ? $" por {nomeQuemEncerrou}" : "").
+                Não é possível atestar ou contestar viagens deste período.
+            </span>
+        </div>
+    }
 
     <!-- Resumo -->
     <div class="row mb-4 g-3">
@@ -203,20 +231,27 @@ else
                             }
                         </td>
                         <td class="text-center">
-                            @if (v.StatusConferenciaGestor == "Pendente")
+                            @if (isSomenteLeitura)
                             {
-                                <button class="btn btn-sm btn-success me-1" @onclick="() => Aprovar(v)">
-                                    <Icon Name="circle-check" Size="14" /> Atestar
-                                </button>
-                                <button class="btn btn-sm btn-danger" @onclick="() => AbrirContestacao(v)">
-                                    <Icon Name="circle-xmark" Size="14" /> Contestar
-                                </button>
+                                <span class="text-muted small">Sem permissão</span>
                             }
                             else
                             {
-                                <button class="btn btn-sm btn-outline-secondary" @onclick="() => SolicitarReversao(v)">
-                                    <Icon Name="rotate-left" Size="14" /> Reverter
-                                </button>
+                                @if (v.StatusConferenciaGestor == "Pendente")
+                                {
+                                    <button class="btn btn-sm btn-success me-1" @onclick="() => Aprovar(v)">
+                                        <Icon Name="circle-check" Size="14" /> Atestar
+                                    </button>
+                                    <button class="btn btn-sm btn-danger" @onclick="() => AbrirContestacao(v)">
+                                        <Icon Name="circle-xmark" Size="14" /> Contestar
+                                    </button>
+                                }
+                                else
+                                {
+                                    <button class="btn btn-sm btn-outline-secondary" @onclick="() => SolicitarReversao(v)">
+                                        <Icon Name="rotate-left" Size="14" /> Reverter
+                                    </button>
+                                }
                             }
                         </td>
                     </tr>
@@ -282,7 +317,7 @@ else
                     <div class="alert alert-info mb-2">
                         Todas as viagens foram analisadas! Confirme a verificação do mês.
                     </div>
-                    <button class="btn btn-success" @onclick="ConfirmarMes" disabled="@confirmando">
+                    <button class="btn btn-success" @onclick="ConfirmarMes" disabled="@(confirmando || isSomenteLeitura)">
                         @if (confirmando)
                         {
                             <span class="spinner-border spinner-border-sm me-2"></span>
@@ -416,6 +451,13 @@ else
     private List<Viagem>? viagens;
     private List<Viagem> viagensFiltradas = new();
 
+    private List<CentroCusto> centrosCusto = new();
+    private int? centroCustoSelecionadoId;
+    private bool isAdmin;
+    private bool isSomenteLeitura = false;
+    private bool mesEncerradoParaGestor = false;
+    private string? nomeQuemEncerrou;
+
     private int mesSelecionado = DateTime.Now.Month;
     private int anoSelecionado = DateTime.Now.Year;
     private List<int> anosDisponiveis = new();
@@ -471,10 +513,20 @@ else
         }
 
         var perfil = UserSession.UsuarioLogado!.Perfil;
-        temPermissao = await Db.PerfisRecurso
+        var temPermissaoPadrao = await Db.PerfisRecurso
             .AnyAsync(pr => pr.Perfil == perfil && pr.Recurso.Chave == "AnalisarViagens");
 
+        isAdmin = perfil == "Admin" || perfil == "Gestor Central Ateste";
+        temPermissao = temPermissaoPadrao || isAdmin;
+
         if (!temPermissao) return;
+
+        if (isAdmin)
+        {
+            centrosCusto = await Db.CentrosCusto.OrderBy(c => c.Nome).ToListAsync();
+        }
+
+        centroCustoSelecionadoId = UserSession.UsuarioLogado!.CentroCustoId;
 
         anosDisponiveis = await Db.Viagens.Select(v => v.DataViagem.Year).Distinct().OrderByDescending(y => y).ToListAsync();
         if (anosDisponiveis.Count == 0 || !anosDisponiveis.Contains(DateTime.Now.Year))
@@ -486,7 +538,33 @@ else
 
     private async Task CarregarViagens()
     {
-        var centroCustoId = UserSession.UsuarioLogado!.CentroCustoId;
+        var centroCustoId = isAdmin ? centroCustoSelecionadoId : UserSession.UsuarioLogado!.CentroCustoId;
+
+        var perfil = UserSession.UsuarioLogado!.Perfil;
+        if (perfil == "Gestor Central Ateste" && centroCustoId != UserSession.UsuarioLogado!.CentroCustoId)
+        {
+            isSomenteLeitura = true;
+        }
+        else
+        {
+            isSomenteLeitura = false;
+        }
+
+        // Verificar encerramento do mês para gestores comuns
+        mesEncerradoParaGestor = false;
+        nomeQuemEncerrou = null;
+        if (perfil == "Gestor Primário" || perfil == "Gestor Secundário")
+        {
+            var encerramento = await Db.EncerramentosMensais
+                .Include(e => e.EncerradoPor)
+                .FirstOrDefaultAsync(e => e.Ano == anoSelecionado && e.Mes == mesSelecionado && e.Encerrado);
+            if (encerramento is not null)
+            {
+                mesEncerradoParaGestor = true;
+                isSomenteLeitura = true;
+                nomeQuemEncerrou = encerramento.EncerradoPor?.Nome;
+            }
+        }
 
         // Filtro por mês/ano
         var mesInicio = new DateOnly(anoSelecionado, mesSelecionado, 1);
@@ -498,7 +576,7 @@ else
             .Include(v => v.CentroCusto)
             .Where(v => v.DataViagem >= mesInicio && v.DataViagem < mesFim);
 
-        // Se o gestor tem centro de custo, filtra; admin vê tudo
+        // Se o gestor tem centro de custo selecionado ou definido no perfil, filtra; admin vê tudo caso deixe nulo
         if (centroCustoId.HasValue)
         {
             query = query.Where(v => v.CentroCustoId == centroCustoId.Value);
@@ -515,7 +593,7 @@ else
 
     private async Task VerificarConfirmacao()
     {
-        var centroCustoId = UserSession.UsuarioLogado!.CentroCustoId;
+        var centroCustoId = isAdmin ? centroCustoSelecionadoId : UserSession.UsuarioLogado!.CentroCustoId;
         if (!centroCustoId.HasValue || viagens is null) return;
 
         var conferencia = await Db.ConferenciasMensais
@@ -663,7 +741,7 @@ else
     /// Remove a confirmação existente deste centro de custo/mês para forçar reconfirmação
     private async Task InvalidarConfirmacao()
     {
-        var centroCustoId = UserSession.UsuarioLogado!.CentroCustoId;
+        var centroCustoId = isAdmin ? centroCustoSelecionadoId : UserSession.UsuarioLogado!.CentroCustoId;
         if (!centroCustoId.HasValue) return;
 
         var conf = await Db.ConferenciasMensais
@@ -678,7 +756,7 @@ else
 
     private async Task ConfirmarMes()
     {
-        var centroCustoId = UserSession.UsuarioLogado!.CentroCustoId;
+        var centroCustoId = isAdmin ? centroCustoSelecionadoId : UserSession.UsuarioLogado!.CentroCustoId;
         if (!centroCustoId.HasValue) return;
 
         confirmando = true;

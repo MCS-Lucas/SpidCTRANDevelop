@@ -77,11 +77,73 @@ else
     {
         <p class="text-muted">Carregando...</p>
     }
-    else if (centrosCustoStatus.Count == 0)
+    else
+    {
+        <!-- Card de Encerramento do Mês -->
+        <div class="card shadow-sm mb-4 @(mesEncerrado ? "border-danger" : "border-success")">
+            <div class="card-body d-flex align-items-center gap-3 flex-wrap">
+                <div class="d-flex align-items-center gap-2">
+                    @if (mesEncerrado)
+                    {
+                        <span class="badge bg-danger fs-6 d-flex align-items-center gap-1 px-3 py-2">
+                            <Icon Name="lock" Size="14" /> Mês Encerrado
+                        </span>
+                        <button class="btn btn-success btn-sm d-flex align-items-center gap-1" @onclick="LiberarMes" disabled="@processandoEncerramento">
+                            @if (processandoEncerramento)
+                            {
+                                <span class="spinner-border spinner-border-sm"></span>
+                            }
+                            <Icon Name="lock-open" Size="14" /> Liberar Mês
+                        </button>
+                    }
+                    else
+                    {
+                        <span class="badge bg-success fs-6 d-flex align-items-center gap-1 px-3 py-2">
+                            <Icon Name="lock-open" Size="14" /> Mês Liberado
+                        </span>
+                        <button class="btn btn-danger btn-sm d-flex align-items-center gap-1" @onclick="EncerrarMes" disabled="@processandoEncerramento">
+                            @if (processandoEncerramento)
+                            {
+                                <span class="spinner-border spinner-border-sm"></span>
+                            }
+                            <Icon Name="lock" Size="14" /> Encerrar Mês
+                        </button>
+                    }
+                </div>
+                <div class="vr d-none d-md-block"></div>
+                <div class="d-flex flex-column gap-1 small">
+                    <span>
+                        <strong>Encerramento:</strong>
+                        @if (encerramentoRegistro?.DataEncerramento is not null)
+                        {
+                            <span>@encerramentoRegistro.EncerradoPor?.Nome — @encerramentoRegistro.DataEncerramento?.ToString("dd/MM/yyyy HH:mm")</span>
+                        }
+                        else
+                        {
+                            <span class="text-muted fst-italic">Sem registro de encerramento</span>
+                        }
+                    </span>
+                    <span>
+                        <strong>Liberação:</strong>
+                        @if (encerramentoRegistro?.DataLiberacao is not null)
+                        {
+                            <span>@encerramentoRegistro.LiberadoPor?.Nome — @encerramentoRegistro.DataLiberacao?.ToString("dd/MM/yyyy HH:mm")</span>
+                        }
+                        else
+                        {
+                            <span class="text-muted fst-italic">Sem registro de liberação</span>
+                        }
+                    </span>
+                </div>
+            </div>
+        </div>
+    }
+
+    @if (centrosCustoStatus is not null && centrosCustoStatus.Count == 0)
     {
         <div class="alert alert-info">Nenhum centro de custo com viagens neste mês.</div>
     }
-    else
+    else if (centrosCustoStatus is not null && centrosCustoStatus.Count > 0)
     {
         <div class="table-responsive">
             <table class="table table-hover align-middle">
@@ -316,6 +378,11 @@ else
     private List<int> anosDisponiveis = new();
     private List<CentroCustoStatusDto>? centrosCustoStatus;
 
+    // Encerramento mensal
+    private EncerramentoMensal? encerramentoRegistro;
+    private bool mesEncerrado;
+    private bool processandoEncerramento;
+
     private async Task MesAnterior()
     {
         if (mesSelecionado > 1)
@@ -426,6 +493,73 @@ else
         .ToList();
 
         OrdenarStatus();
+        await CarregarEncerramento();
+    }
+
+    private async Task CarregarEncerramento()
+    {
+        encerramentoRegistro = await Db.EncerramentosMensais
+            .Include(e => e.EncerradoPor)
+            .Include(e => e.LiberadoPor)
+            .FirstOrDefaultAsync(e => e.Ano == anoSelecionado && e.Mes == mesSelecionado);
+
+        mesEncerrado = encerramentoRegistro?.Encerrado == true;
+    }
+
+    private async Task EncerrarMes()
+    {
+        processandoEncerramento = true;
+        try
+        {
+            var registro = await Db.EncerramentosMensais
+                .FirstOrDefaultAsync(e => e.Ano == anoSelecionado && e.Mes == mesSelecionado);
+
+            if (registro is null)
+            {
+                registro = new EncerramentoMensal
+                {
+                    Ano = anoSelecionado,
+                    Mes = mesSelecionado
+                };
+                Db.EncerramentosMensais.Add(registro);
+            }
+
+            registro.Encerrado = true;
+            registro.EncerradoPorId = UserSession.UsuarioLogado!.Id;
+            registro.DataEncerramento = DateTime.Now;
+
+            await Db.SaveChangesAsync();
+            await CarregarEncerramento();
+        }
+        finally
+        {
+            processandoEncerramento = false;
+        }
+    }
+
+    private async Task LiberarMes()
+    {
+        processandoEncerramento = true;
+        try
+        {
+            var registro = await Db.EncerramentosMensais
+                .FirstOrDefaultAsync(e => e.Ano == anoSelecionado && e.Mes == mesSelecionado);
+
+            if (registro is not null)
+            {
+                registro.Encerrado = false;
+                registro.LiberadoPorId = UserSession.UsuarioLogado!.Id;
+                registro.DataLiberacao = DateTime.Now;
+
+                await Db.SaveChangesAsync();
+            }
+
+            await CarregarEncerramento();
+        }
+        finally
+        {
+            processandoEncerramento = false;
+        }
     }
 
     private bool ordenarStatusAsc;
