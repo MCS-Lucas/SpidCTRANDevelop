@@ -82,12 +82,12 @@ else
             <table class="table table-hover align-middle">
                 <thead class="table-dark">
                     <tr>
+                        <th class="text-center">Perfil</th>
                         <th class="text-center" role="button" style="cursor: pointer; user-select: none;" @onclick="AlternarOrdemNome">
                             Nome @(ordenarNomeAsc ? "▲" : "▼")
                         </th>
                         <th class="text-center">Ponto</th>
                         <th class="text-center">E-mail</th>
-                        <th class="text-center">Perfil</th>
                         <th class="text-center">Centro de Custo</th>
                         <th class="text-center">Status</th>
                         <th class="text-center">Ações</th>
@@ -97,14 +97,21 @@ else
                     @foreach (var u in usuarios)
                     {
                         <tr class="@(u.Ativo ? "" : "table-secondary")">
+                            <td class="text-center">
+                                @if (u.Perfil == "Gestor Central Ateste")
+                                {
+                                    <span class="badge text-white" style="background-color: #fd7e14;">@u.Perfil</span>
+                                }
+                                else
+                                {
+                                    <span class="badge text-white @(u.Perfil == "Admin" ? "bg-danger" : u.Perfil == "Gestor Central Padrão" ? "bg-warning" : u.Perfil == "Gestor Substituto" ? "bg-info" : "bg-primary")">
+                                        @u.Perfil
+                                    </span>
+                                }
+                            </td>
                             <td class="text-center">@u.Nome</td>
                             <td class="text-center"><code>@u.Ponto</code></td>
                             <td class="text-center">@u.Email</td>
-                            <td class="text-center">
-                                <span class="badge @(u.Perfil == "Admin" ? "bg-danger" : u.Perfil == "Gestor Central Ateste" ? "bg-warning text-dark" : u.Perfil == "Gestor Central Padrão" ? "bg-info text-dark" : "bg-primary")">
-                                    @u.Perfil
-                                </span>
-                            </td>
                             <td class="text-center">@(u.CentroCusto?.Nome ?? "—")</td>
                             <td class="text-center">
                                 <span class="badge @(u.Ativo ? "bg-success" : "bg-secondary")">
@@ -202,6 +209,17 @@ else
         return false;
     }
 
+    private int ObterPesoPerfil(string perfil) => perfil switch
+    {
+        "Admin" => 1,
+        "Gestor Central Ateste" => 2,
+        "Gestor Central Padrão" => 3,
+        "Gestor Titular" => 4,
+        "Gestor Substituto" => 5,
+        "Colaborador" => 6,
+        _ => 99
+    };
+
     private void AplicarFiltrosEOrdenacao()
     {
         if (todosUsuarios is null) return;
@@ -231,10 +249,10 @@ else
             }
         }
 
-        // 2. Ordenar por Nome
+        // 2. Ordenar por Perfil (Hierarquia) e depois por Nome
         query = ordenarNomeAsc 
-            ? query.OrderBy(u => u.Nome, StringComparer.CurrentCultureIgnoreCase) 
-            : query.OrderByDescending(u => u.Nome, StringComparer.CurrentCultureIgnoreCase);
+            ? query.OrderBy(u => ObterPesoPerfil(u.Perfil)).ThenBy(u => u.Nome, StringComparer.CurrentCultureIgnoreCase) 
+            : query.OrderByDescending(u => ObterPesoPerfil(u.Perfil)).ThenByDescending(u => u.Nome, StringComparer.CurrentCultureIgnoreCase);
 
         usuarios = query.ToList();
     }
