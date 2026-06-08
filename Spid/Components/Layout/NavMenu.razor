@@ -1,7 +1,10 @@
+@using Microsoft.AspNetCore.Components.Routing
 @using Microsoft.EntityFrameworkCore
 @using Spid.Data
 @inject UserSession UserSession
 @inject IDbContextFactory<AppDbContext> DbFactory
+@inject NavigationManager NavManager
+@implements IDisposable
 
 <div class="top-row ps-3 navbar navbar-dark">
     <div class="container-fluid">
@@ -13,48 +16,64 @@
 
 <div class="nav-scrollable" onclick="document.querySelector('.navbar-toggler').click()">
     <nav class="nav flex-column">
-        <div class="nav-item px-3">
-            <NavLink class="nav-link" href="" Match="NavLinkMatch.All">
-                <Icon Name="house" Size="16" Class="nav-icon" /> Dashboard
-            </NavLink>
+
+        <!-- CATEGORIA: ATESTE -->
+        <div class="nav-category" @onclick="ToggleAteste">
+            <span class="category-title">Ateste</span>
+            <Icon Name="@(isAtesteOpen ? "chevron-down" : "chevron-up")" Size="12" Class="category-icon" />
+        </div>
+        
+        <div class="nav-subcategory @(isAtesteOpen ? "expanded" : "collapsed")">
+            <div class="nav-item px-3">
+                <NavLink class="nav-link" href="" Match="NavLinkMatch.All">
+                    <Icon Name="house" Size="16" Class="nav-icon" /> Dashboard
+                </NavLink>
+            </div>
+            @if (podeAnalisar)
+            {
+                <div class="nav-item px-3">
+                    <NavLink class="nav-link" href="atestar-viagens">
+                        <Icon Name="magnifying-glass-chart" Size="16" Class="nav-icon" /> Atestar Viagens
+                    </NavLink>
+                </div>
+            }
         </div>
 
-        @if (podeImportar)
-        {
-            <div class="nav-item px-3">
-                <NavLink class="nav-link" href="importar-viagens">
-                    <Icon Name="file-import" Size="16" Class="nav-icon" /> Importar Viagens
-                </NavLink>
-            </div>
-        }
+        <!-- CATEGORIA: GESTÃO -->
+        <div class="nav-category mt-2" @onclick="ToggleGestao">
+            <span class="category-title">Gestão</span>
+            <Icon Name="@(isGestaoOpen ? "chevron-down" : "chevron-up")" Size="12" Class="category-icon" />
+        </div>
+        
+        <div class="nav-subcategory @(isGestaoOpen ? "expanded" : "collapsed")">
+            @if (podeImportar)
+            {
+                <div class="nav-item px-3">
+                    <NavLink class="nav-link" href="importar-viagens">
+                        <Icon Name="file-import" Size="16" Class="nav-icon" /> Importar Viagens
+                    </NavLink>
+                </div>
+            }
 
-        @if (isAdmin)
-        {
-            <div class="nav-item px-3">
-                <NavLink class="nav-link" href="usuarios">
-                    <Icon Name="users-gear" Size="16" Class="nav-icon" /> Gerenciar Usuários
-                </NavLink>
-            </div>
-            <div class="nav-item px-3">
-                <NavLink class="nav-link" href="status-conferencias">
-                    <Icon Name="clipboard-check" Size="16" Class="nav-icon" /> Status Conferências
-                </NavLink>
-            </div>
-        }
+            @if (isAdmin)
+            {
+                <div class="nav-item px-3">
+                    <NavLink class="nav-link" href="usuarios">
+                        <Icon Name="users-gear" Size="16" Class="nav-icon" /> Gerenciar Usuários
+                    </NavLink>
+                </div>
+                <div class="nav-item px-3">
+                    <NavLink class="nav-link" href="status-conferencias">
+                        <Icon Name="clipboard-check" Size="16" Class="nav-icon" /> Status Conferências
+                    </NavLink>
+                </div>
+            }
 
-        @if (podeAnalisar)
-        {
             <div class="nav-item px-3">
-                <NavLink class="nav-link" href="atestar-viagens">
-                    <Icon Name="magnifying-glass-chart" Size="16" Class="nav-icon" /> Atestar Viagens
+                <NavLink class="nav-link" href="minhas-informacoes">
+                    <Icon Name="user-pen" Size="16" Class="nav-icon" /> Minhas Informações
                 </NavLink>
             </div>
-        }
-
-        <div class="nav-item px-3">
-            <NavLink class="nav-link" href="minhas-informacoes">
-                <Icon Name="user-pen" Size="16" Class="nav-icon" /> Minhas Informações
-            </NavLink>
         </div>
     </nav>
 </div>
@@ -64,8 +83,14 @@
     private bool podeAnalisar;
     private bool isAdmin;
 
+    private bool isAtesteOpen = true; // Dashboard default
+    private bool isGestaoOpen = false;
+
     protected override async Task OnInitializedAsync()
     {
+        NavManager.LocationChanged += OnLocationChanged;
+        CheckActiveMenu(NavManager.Uri);
+
         if (!UserSession.IsAuthenticated) return;
 
         var perfil = UserSession.UsuarioLogado!.Perfil;
@@ -80,6 +105,34 @@
             .ToListAsync();
 
         podeImportar = permissoes.Contains("ImportarViagens");
-        podeAnalisar = permissoes.Contains("AnalisarViagens");
+        podeAnalisar = permissoes.Contains("AnalisarViagens") || perfil == "Admin" || perfil == "Gestor Central Ateste";
+    }
+
+    private void OnLocationChanged(object? sender, LocationChangedEventArgs e)
+    {
+        CheckActiveMenu(e.Location);
+    }
+
+    private void CheckActiveMenu(string url)
+    {
+        var relativeUrl = NavManager.ToBaseRelativePath(url).Split('?')[0].TrimEnd('/');
+        
+        if (relativeUrl == "" || relativeUrl == "atestar-viagens")
+        {
+            isAtesteOpen = true;
+        }
+        else if (relativeUrl == "importar-viagens" || relativeUrl == "usuarios" || relativeUrl == "status-conferencias" || relativeUrl == "minhas-informacoes")
+        {
+            isGestaoOpen = true;
+        }
+        InvokeAsync(StateHasChanged);
+    }
+
+    private void ToggleAteste() => isAtesteOpen = !isAtesteOpen;
+    private void ToggleGestao() => isGestaoOpen = !isGestaoOpen;
+
+    public void Dispose()
+    {
+        NavManager.LocationChanged -= OnLocationChanged;
     }
 }
