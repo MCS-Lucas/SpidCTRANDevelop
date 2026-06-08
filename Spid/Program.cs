@@ -270,6 +270,63 @@ app.MapGet("/login", (HttpContext ctx) =>
                 transform: translateY(0);
                 box-shadow: 0 3px 10px rgba(26, 115, 232, 0.28);
             }
+
+            /* Custom Modal Styles */
+            .custom-modal {
+                display: none;
+                position: fixed;
+                z-index: 1000;
+                left: 0;
+                top: 0;
+                width: 100%;
+                height: 100%;
+                background-color: rgba(0,0,0,0.5);
+                align-items: center;
+                justify-content: center;
+            }
+            .custom-modal-content {
+                background-color: #fff;
+                border-radius: 12px;
+                width: 90%;
+                max-width: 450px;
+                overflow: hidden;
+                box-shadow: 0 5px 15px rgba(0,0,0,0.3);
+                animation: fadeIn 0.2s ease-in-out;
+            }
+            @keyframes fadeIn {
+                from { opacity: 0; transform: scale(0.95); }
+                to { opacity: 1; transform: scale(1); }
+            }
+            .custom-modal-header {
+                background: linear-gradient(135deg, #1a73e8, #1557ad);
+                color: white;
+                padding: 1rem 1.5rem;
+                display: flex;
+                justify-content: space-between;
+                align-items: center;
+            }
+            .custom-modal-header h5 {
+                margin: 0;
+                font-size: 1.1rem;
+            }
+            .custom-close {
+                color: white;
+                font-size: 1.5rem;
+                font-weight: bold;
+                cursor: pointer;
+                line-height: 1;
+            }
+            .custom-modal-body {
+                padding: 1.5rem;
+                text-align: center;
+                color: #333;
+            }
+            .custom-modal-footer {
+                padding: 1rem;
+                text-align: center;
+                background-color: #f8f9fa;
+                border-top: 1px solid #eee;
+            }
         </style>
     </head>
     <body>
@@ -294,10 +351,43 @@ app.MapGet("/login", (HttpContext ctx) =>
                 <button type="submit" class="btn btn-primary w-100">Entrar</button>
 
                 <br /><br />
-                <!-- TODO: Implementar rota e página para alteração de senha do usuário -->
-                <a href="" class="text-center mb-2 d-block">Esqueci minha senha</a>
+                <a href="javascript:void(0)" onclick="openModal()" class="text-center mb-2 d-block">Esqueci minha senha</a>
             </form>
         </main>
+
+        <!-- Custom Modal -->
+        <div id="forgotPasswordModal" class="custom-modal">
+            <div class="custom-modal-content">
+                <div class="custom-modal-header">
+                    <h5>Aviso</h5>
+                    <span class="custom-close" onclick="closeModal()">&times;</span>
+                </div>
+                <div class="custom-modal-body">
+                    <p class="mb-3">A funcionalidade de <strong>Alterar Senha</strong> ainda está em desenvolvimento!</p>
+                    <p class="mb-3">Caso tenha esquecido sua senha e precise alterá-la entre em contato pelo ramal:</p>
+                    <h5 class="mb-1" style="color: #1a73e8; font-weight: 700;">6-3116 Dani</h5>
+                    <h5 class="mb-0" style="color: #1a73e8; font-weight: 700;">6-3142 Flávia</h5>
+                </div>
+                <div class="custom-modal-footer">
+                    <button type="button" class="btn btn-primary px-4" onclick="closeModal()">Entendido</button>
+                </div>
+            </div>
+        </div>
+
+        <script>
+            function openModal() {
+                document.getElementById('forgotPasswordModal').style.display = 'flex';
+            }
+            function closeModal() {
+                document.getElementById('forgotPasswordModal').style.display = 'none';
+            }
+            window.onclick = function(event) {
+                var modal = document.getElementById('forgotPasswordModal');
+                if (event.target == modal) {
+                    closeModal();
+                }
+            }
+        </script>
     </body>
     </html>
     """;
