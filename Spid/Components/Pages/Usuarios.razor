@@ -62,6 +62,13 @@ else
                         <option value="Ateste">Ateste</option>
                     }
                 </select>
+
+                <div class="form-check form-switch ms-2 mt-1">
+                    <input class="form-check-input" type="checkbox" role="switch" id="checkInativos" @bind="incluirInativos" @bind:after="AplicarFiltrosEOrdenacao">
+                    <label class="form-check-label text-nowrap user-select-none" for="checkInativos" style="cursor: pointer;">
+                        Incluir Inativos
+                    </label>
+                </div>
             </div>
             
             <div class="ms-auto">
@@ -109,7 +116,13 @@ else
                                     </span>
                                 }
                             </td>
-                            <td class="text-center">@u.Nome</td>
+                            <td class="text-center">
+                                @u.Nome
+                                @if (u.IsTeste)
+                                {
+                                    <span class="badge text-white ms-2" style="background-color: #6f42c1;">TESTE</span>
+                                }
+                            </td>
                             <td class="text-center"><code>@u.Ponto</code></td>
                             <td class="text-center">@u.Email</td>
                             <td class="text-center">@(u.CentroCusto?.Nome ?? "—")</td>
@@ -148,6 +161,7 @@ else
     private string perfilSelecionado = "Todos";
     private string subtipoSelecionado = "Todos";
     private bool ordenarNomeAsc = true;
+    private bool incluirInativos = false;
 
     protected override async Task OnInitializedAsync()
     {
@@ -182,9 +196,17 @@ else
 
     private async Task CarregarUsuarios()
     {
-        todosUsuarios = await Db.Usuarios
+        var usuariosQuery = await Db.Usuarios
             .Include(u => u.CentroCusto)
             .ToListAsync();
+
+        var perfilLogado = UserSession.UsuarioLogado!.Perfil;
+        if (perfilLogado != "Admin")
+        {
+            usuariosQuery = usuariosQuery.Where(u => !u.IsTeste).ToList();
+        }
+        
+        todosUsuarios = usuariosQuery;
 
         AplicarFiltrosEOrdenacao();
     }
@@ -203,7 +225,7 @@ else
         
         if (perfilLogado == "Gestor Central Padrão")
         {
-            return alvo.Perfil == "Gestor Titular" || alvo.Perfil == "Gestor Substituto";
+            return alvo.Perfil == "Gestor Titular" || alvo.Perfil == "Gestor Substituto" || alvo.Perfil == "Gestor Sem Setor";
         }
         
         return false;
@@ -226,13 +248,18 @@ else
 
         var query = todosUsuarios.AsEnumerable();
 
+        if (!incluirInativos)
+        {
+            query = query.Where(u => u.Ativo);
+        }
+
         // 1. Filtrar por Perfil
         if (perfilSelecionado != "Todos")
         {
             if (perfilSelecionado == "Gestores")
             {
                 if (subtipoSelecionado == "Todos")
-                    query = query.Where(u => u.Perfil == "Gestor Titular" || u.Perfil == "Gestor Substituto");
+                    query = query.Where(u => u.Perfil == "Gestor Titular" || u.Perfil == "Gestor Substituto" || u.Perfil == "Gestor Sem Setor");
                 else
                     query = query.Where(u => u.Perfil == $"Gestor {subtipoSelecionado}");
             }

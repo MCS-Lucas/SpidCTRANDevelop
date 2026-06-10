@@ -88,7 +88,7 @@ else
                         <span class="badge bg-danger fs-6 d-flex align-items-center gap-1 px-3 py-2">
                             <Icon Name="lock" Size="14" /> Mês Encerrado
                         </span>
-                        <button class="btn btn-success btn-sm d-flex align-items-center gap-1" @onclick="LiberarMes" disabled="@processandoEncerramento">
+                        <button class="btn btn-success btn-sm d-flex align-items-center gap-1" @onclick="AbrirModalLiberar" disabled="@processandoEncerramento">
                             @if (processandoEncerramento)
                             {
                                 <span class="spinner-border spinner-border-sm"></span>
@@ -101,7 +101,7 @@ else
                         <span class="badge bg-success fs-6 d-flex align-items-center gap-1 px-3 py-2">
                             <Icon Name="lock-open" Size="14" /> Mês Liberado
                         </span>
-                        <button class="btn btn-danger btn-sm d-flex align-items-center gap-1" @onclick="EncerrarMes" disabled="@processandoEncerramento">
+                        <button class="btn btn-danger btn-sm d-flex align-items-center gap-1" @onclick="AbrirModalEncerrar" disabled="@processandoEncerramento">
                             @if (processandoEncerramento)
                             {
                                 <span class="spinner-border spinner-border-sm"></span>
@@ -134,6 +134,78 @@ else
                             <span class="text-muted fst-italic">Sem registro de liberação</span>
                         }
                     </span>
+                </div>
+                <div class="ms-auto">
+                    <button class="btn btn-outline-secondary btn-sm d-flex align-items-center gap-1" @onclick="AbrirModalReverter" disabled="@processandoEncerramento" title="Volta para o status de viagens e conferências do mês anterior">
+                        <Icon Name="rotate-left" Size="14" /> Reverter ação
+                    </button>
+                </div>
+            </div>
+        </div>
+    }
+
+    <!-- Modais de Confirmação -->
+    @if (exibindoModalEncerrar)
+    {
+        <div class="modal d-block" tabindex="-1" style="background-color: rgba(0,0,0,0.5); z-index: 1050;">
+            <div class="modal-dialog modal-dialog-centered">
+                <div class="modal-content border-danger">
+                    <div class="modal-header bg-danger text-white">
+                        <h5 class="modal-title">Confirmar Encerramento</h5>
+                        <button type="button" class="btn-close btn-close-white" @onclick="FecharModalEncerrar"></button>
+                    </div>
+                    <div class="modal-body">
+                        <p>Tem certeza que deseja encerrar o mês de @System.Globalization.CultureInfo.GetCultureInfo("pt-BR").DateTimeFormat.GetMonthName(mesSelecionado)/@anoSelecionado?</p>
+                        <p class="small text-muted">Isso converterá todas as viagens pendentes para o status de 'Consideradas'.</p>
+                    </div>
+                    <div class="modal-footer">
+                        <button class="btn btn-secondary" @onclick="FecharModalEncerrar">Cancelar</button>
+                        <button class="btn btn-danger" @onclick="EncerrarMes">Confirmar</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    }
+
+    @if (exibindoModalLiberar)
+    {
+        <div class="modal d-block" tabindex="-1" style="background-color: rgba(0,0,0,0.5); z-index: 1050;">
+            <div class="modal-dialog modal-dialog-centered">
+                <div class="modal-content border-success">
+                    <div class="modal-header bg-success text-white">
+                        <h5 class="modal-title">Confirmar Liberação</h5>
+                        <button type="button" class="btn-close btn-close-white" @onclick="FecharModalLiberar"></button>
+                    </div>
+                    <div class="modal-body">
+                        <p>Tem certeza que deseja liberar o mês de @System.Globalization.CultureInfo.GetCultureInfo("pt-BR").DateTimeFormat.GetMonthName(mesSelecionado)/@anoSelecionado?</p>
+                        <p class="small text-muted">Os gestores poderão novamente modificar os atestes das viagens.</p>
+                    </div>
+                    <div class="modal-footer">
+                        <button class="btn btn-secondary" @onclick="FecharModalLiberar">Cancelar</button>
+                        <button class="btn btn-success" @onclick="LiberarMes">Confirmar</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    }
+
+    @if (exibindoModalReverter)
+    {
+        <div class="modal d-block" tabindex="-1" style="background-color: rgba(0,0,0,0.5); z-index: 1050;">
+            <div class="modal-dialog modal-dialog-centered">
+                <div class="modal-content">
+                    <div class="modal-header">
+                        <h5 class="modal-title">Confirmar Reversão</h5>
+                        <button type="button" class="btn-close" @onclick="FecharModalReverter"></button>
+                    </div>
+                    <div class="modal-body">
+                        <p>Tem certeza que deseja reverter a última ação realizada neste mês?</p>
+                        <p class="small text-danger">Isso desfará a liberação ou encerramento do mês e retornará o status das viagens para o estado anterior.</p>
+                    </div>
+                    <div class="modal-footer">
+                        <button class="btn btn-secondary" @onclick="FecharModalReverter">Cancelar</button>
+                        <button class="btn btn-primary" @onclick="ReverterAcaoEncerramento">Confirmar Reversão</button>
+                    </div>
                 </div>
             </div>
         </div>
@@ -237,6 +309,12 @@ else
                                         <Icon Name="circle-check" Size="12" /> Confirmado
                                     </span>
                                 }
+                                else if (mesEncerrado)
+                                {
+                                    <span class="badge bg-secondary">
+                                        <Icon Name="lock" Size="12" /> Encerrado
+                                    </span>
+                                }
                                 else if (s.Pendentes == 0 && s.TotalViagens > 0)
                                 {
                                     <span class="badge bg-info">Aguardando confirmação</span>
@@ -266,6 +344,80 @@ else
     }
 }
 
+@if (UserSession.UsuarioLogado?.Perfil == "Admin")
+{
+    <div class="card mt-5 border-danger shadow-sm">
+        <div class="card-header bg-danger text-white d-flex align-items-center gap-2">
+            <Icon Name="triangle-exclamation" Size="16" />
+            <strong>Zona de Perigo (Apenas Admins)</strong>
+        </div>
+        <div class="card-body">
+            <p class="text-danger mb-3">
+                <strong>Atenção:</strong> Apagar o registro de uma conferência mensal fará com que o sistema entenda que o setor ainda não consolidou as viagens deste mês.
+                A opção de "Finalizar Mês" voltará a ficar disponível para o Gestor. Esta ação é destrutiva e não pode ser desfeita.
+            </p>
+            
+            <div class="row align-items-end">
+                <div class="col-md-6 col-lg-4 mb-3 mb-md-0">
+                    <label class="form-label fw-bold">Centro de Custo</label>
+                    <select class="form-select" @bind="centroCustoExclusao">
+                        <option value="0">Todos os Centros de Custo com conferência</option>
+                        @if (centrosCustoStatus != null)
+                        {
+                            @foreach (var c in centrosCustoStatus.Where(x => x.Confirmado).OrderBy(x => x.CentroCustoNome))
+                            {
+                                <option value="@c.CentroCustoId">@c.CentroCustoNome</option>
+                            }
+                        }
+                    </select>
+                </div>
+                <div class="col-md-6 col-lg-8 text-md-end">
+                    <button class="btn btn-outline-danger" @onclick="AbrirModalExclusaoConferencia">
+                        <Icon Name="trash" Size="14" /> Apagar Conferência(s)
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal de Exclusão de Conferência -->
+    @if (exibindoModalExclusao)
+    {
+        <div class="modal d-block" tabindex="-1" style="background-color: rgba(0,0,0,0.5); z-index: 1050;">
+            <div class="modal-dialog modal-dialog-centered">
+                <div class="modal-content border-danger">
+                    <div class="modal-header bg-danger text-white">
+                        <h5 class="modal-title">Confirmar Exclusão</h5>
+                        <button type="button" class="btn-close btn-close-white" @onclick="FecharModalExclusao"></button>
+                    </div>
+                    <div class="modal-body">
+                        <p>Tem certeza que deseja apagar o registro de conferência?</p>
+                        @if (centroCustoExclusao == 0)
+                        {
+                            <p class="fw-bold text-danger">Você está prestes a apagar TODOS os registros de ateste do mês @mesSelecionado/@anoSelecionado.</p>
+                        }
+                        else
+                        {
+                            <p class="fw-bold text-danger">Você está prestes a apagar o registro do centro de custo: @(centrosCustoStatus?.FirstOrDefault(c => c.CentroCustoId == centroCustoExclusao)?.CentroCustoNome).</p>
+                        }
+                        <p class="small text-muted">Esta ação fará com que o botão "Finalizar Mês" fique disponível novamente para os gestores.</p>
+                    </div>
+                    <div class="modal-footer">
+                        <button class="btn btn-secondary" @onclick="FecharModalExclusao">Cancelar</button>
+                        <button class="btn btn-danger" @onclick="ExcluirConferenciaAsync" disabled="@carregandoExclusao">
+                            @if (carregandoExclusao)
+                            {
+                                <span class="spinner-border spinner-border-sm me-2"></span>
+                            }
+                            Confirmar Exclusão
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    }
+}
+
 @* Modal de detalhes das viagens *@
 @if (detalheViagens is not null)
 {
@@ -286,6 +438,18 @@ else
                     <button type="button" class="btn-close" @onclick="FecharDetalhes"></button>
                 </div>
                 <div class="modal-body">
+                    @if (detalheStatus == "OK")
+                    {
+                        <div class="mb-3 d-flex align-items-center gap-2">
+                            <label class="form-label mb-0 fw-bold small">Exibir:</label>
+                            <select class="form-select form-select-sm w-auto" @bind="subFiltroOK">
+                                <option value="Ambos">Atestadas e Consideradas</option>
+                                <option value="OK">Apenas Atestadas</option>
+                                <option value="Considerado">Apenas Consideradas</option>
+                            </select>
+                        </div>
+                    }
+
                     @if (detalheViagens.Count == 0)
                     {
                         <p class="text-muted">Nenhuma viagem encontrada.</p>
@@ -304,7 +468,7 @@ else
                                         <th class="text-end">V. Cotado</th>
                                         <th class="text-end">V. Final</th>
                                         <th>Motivo da Viagem</th>
-                                        @if (detalheStatus == "Todas")
+                                        @if (detalheStatus == "Todas" || detalheStatus == "OK")
                                         {
                                             <th>Status</th>
                                         }
@@ -315,7 +479,7 @@ else
                                     </tr>
                                 </thead>
                                 <tbody>
-                                    @foreach (var v in detalheViagens)
+                                    @foreach (var v in detalheViagens.Where(v => detalheStatus != "OK" || subFiltroOK == "Ambos" || v.StatusConferenciaGestor == subFiltroOK))
                                     {
                                         <tr>
                                             <td>@v.DataViagem.ToString("dd/MM/yyyy")</td>
@@ -326,12 +490,16 @@ else
                                             <td class="text-end">R$ @v.ValorCotado.ToString("N2")</td>
                                             <td class="text-end">R$ @v.ValorFinal.ToString("N2")</td>
                                             <td>@v.Motivo</td>
-                                            @if (detalheStatus == "Todas")
+                                            @if (detalheStatus == "Todas" || detalheStatus == "OK")
                                             {
                                                 <td>
                                                     @if (v.StatusConferenciaGestor == "OK")
                                                     {
                                                         <span class="badge bg-success">OK</span>
+                                                    }
+                                                    else if (v.StatusConferenciaGestor == "Considerado")
+                                                    {
+                                                        <span class="badge bg-success bg-opacity-75">Considerada</span>
                                                     }
                                                     else if (v.StatusConferenciaGestor == "Contestada")
                                                     {
@@ -383,6 +551,19 @@ else
     private bool mesEncerrado;
     private bool processandoEncerramento;
 
+    private bool exibindoModalEncerrar = false;
+    private bool exibindoModalLiberar = false;
+    private bool exibindoModalReverter = false;
+
+    private void AbrirModalEncerrar() => exibindoModalEncerrar = true;
+    private void FecharModalEncerrar() => exibindoModalEncerrar = false;
+
+    private void AbrirModalLiberar() => exibindoModalLiberar = true;
+    private void FecharModalLiberar() => exibindoModalLiberar = false;
+
+    private void AbrirModalReverter() => exibindoModalReverter = true;
+    private void FecharModalReverter() => exibindoModalReverter = false;
+
     private async Task MesAnterior()
     {
         if (mesSelecionado > 1)
@@ -406,6 +587,7 @@ else
     private List<Viagem>? detalheViagens;
     private string detalheCentroCustoNome = "";
     private string detalheStatus = "";
+    private string subFiltroOK = "Ambos";
 
     protected override async Task OnInitializedAsync()
     {
@@ -443,7 +625,7 @@ else
                 CentroCustoNome = g.Key.Nome,
                 Total = g.Count(),
                 Pendentes = g.Count(v => v.StatusConferenciaGestor == "Pendente"),
-                Aprovadas = g.Count(v => v.StatusConferenciaGestor == "OK"),
+                Aprovadas = g.Count(v => v.StatusConferenciaGestor == "OK" || v.StatusConferenciaGestor == "Considerado"),
                 Contestadas = g.Count(v => v.StatusConferenciaGestor == "Contestada")
             })
             .ToListAsync();
@@ -508,6 +690,7 @@ else
 
     private async Task EncerrarMes()
     {
+        FecharModalEncerrar();
         processandoEncerramento = true;
         try
         {
@@ -528,8 +711,22 @@ else
             registro.EncerradoPorId = UserSession.UsuarioLogado!.Id;
             registro.DataEncerramento = DateTime.Now;
 
+            // Converter viagens pendentes para Considerado
+            var mesInicio = new DateOnly(anoSelecionado, mesSelecionado, 1);
+            var mesFim = mesInicio.AddMonths(1);
+            var viagensPendentes = await Db.Viagens
+                .Where(v => v.DataViagem >= mesInicio && v.DataViagem < mesFim && v.StatusConferenciaGestor == "Pendente")
+                .ToListAsync();
+
+            foreach (var v in viagensPendentes)
+            {
+                v.StatusConferenciaGestor = "Considerado";
+                v.DataConferencia = DateTime.Now;
+            }
+
             await Db.SaveChangesAsync();
             await CarregarEncerramento();
+            await Carregar();
         }
         finally
         {
@@ -539,6 +736,7 @@ else
 
     private async Task LiberarMes()
     {
+        FecharModalLiberar();
         processandoEncerramento = true;
         try
         {
@@ -555,6 +753,63 @@ else
             }
 
             await CarregarEncerramento();
+        }
+        finally
+        {
+            processandoEncerramento = false;
+        }
+    }
+
+    private async Task ReverterAcaoEncerramento()
+    {
+        FecharModalReverter();
+        var registro = await Db.EncerramentosMensais
+            .FirstOrDefaultAsync(e => e.Ano == anoSelecionado && e.Mes == mesSelecionado);
+
+        if (registro == null) return;
+
+        processandoEncerramento = true;
+        try
+        {
+            var mesInicio = new DateOnly(anoSelecionado, mesSelecionado, 1);
+            var mesFim = mesInicio.AddMonths(1);
+
+            if (registro.Encerrado)
+            {
+                // Reverter o "Encerrar Mês"
+                var viagensConsideradas = await Db.Viagens
+                    .Where(v => v.DataViagem >= mesInicio && v.DataViagem < mesFim && v.StatusConferenciaGestor == "Considerado")
+                    .ToListAsync();
+
+                foreach (var v in viagensConsideradas)
+                {
+                    v.StatusConferenciaGestor = "Pendente";
+                    v.DataConferencia = null;
+                }
+
+                Db.EncerramentosMensais.Remove(registro);
+            }
+            else
+            {
+                // Reverter o "Liberar Mês"
+                registro.Encerrado = true;
+                registro.LiberadoPorId = null;
+                registro.DataLiberacao = null;
+                
+                var viagensPendentes = await Db.Viagens
+                    .Where(v => v.DataViagem >= mesInicio && v.DataViagem < mesFim && v.StatusConferenciaGestor == "Pendente")
+                    .ToListAsync();
+
+                foreach (var v in viagensPendentes)
+                {
+                    v.StatusConferenciaGestor = "Considerado";
+                    v.DataConferencia = DateTime.Now;
+                }
+            }
+
+            await Db.SaveChangesAsync();
+            await CarregarEncerramento();
+            await Carregar();
         }
         finally
         {
@@ -610,7 +865,14 @@ else
 
         if (status != "Todas")
         {
-            query = query.Where(v => v.StatusConferenciaGestor == status);
+            if (status == "OK")
+            {
+                query = query.Where(v => v.StatusConferenciaGestor == "OK" || v.StatusConferenciaGestor == "Considerado");
+            }
+            else
+            {
+                query = query.Where(v => v.StatusConferenciaGestor == status);
+            }
         }
 
         detalheViagens = await query
@@ -635,5 +897,52 @@ else
         public bool Confirmado { get; set; }
         public string? ConfirmadoPor { get; set; }
         public DateTime? DataConfirmacao { get; set; }
+    }
+
+    // Zona de Perigo - Exclusão de Conferências
+    private int centroCustoExclusao = 0;
+    private bool exibindoModalExclusao = false;
+    private bool carregandoExclusao = false;
+
+    private void AbrirModalExclusaoConferencia()
+    {
+        exibindoModalExclusao = true;
+    }
+
+    private void FecharModalExclusao()
+    {
+        exibindoModalExclusao = false;
+    }
+
+    private async Task ExcluirConferenciaAsync()
+    {
+        if (UserSession.UsuarioLogado?.Perfil != "Admin") return;
+
+        carregandoExclusao = true;
+        try
+        {
+            var query = Db.ConferenciasMensais
+                .Where(c => c.Ano == anoSelecionado && c.Mes == mesSelecionado);
+
+            if (centroCustoExclusao > 0)
+            {
+                query = query.Where(c => c.CentroCustoId == centroCustoExclusao);
+            }
+
+            var conferenciasParaApagar = await query.ToListAsync();
+            
+            if (conferenciasParaApagar.Any())
+            {
+                Db.ConferenciasMensais.RemoveRange(conferenciasParaApagar);
+                await Db.SaveChangesAsync();
+                await Carregar();
+            }
+            
+            FecharModalExclusao();
+        }
+        finally
+        {
+            carregandoExclusao = false;
+        }
     }
 }

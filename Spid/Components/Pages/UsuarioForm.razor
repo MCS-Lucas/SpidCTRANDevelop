@@ -85,6 +85,7 @@ else
                             {
                                 <option value="Titular">Titular</option>
                                 <option value="Substituto">Substituto</option>
+                                <option value="Sem Setor">Sem Setor</option>
                             }
                             else if (grupoPerfil == "Gestor Central")
                             {
@@ -102,7 +103,7 @@ else
                 <div class="mb-3">
                     <label class="form-label">Centro de Custo</label>
                     <InputSelect @bind-Value="centroCustoId" class="form-select"
-                                 disabled="@(grupoPerfil != "Gestor" && grupoPerfil != "Colaborador" && (grupoPerfil != "Gestor Central" || subtipoPerfil != "Ateste"))">
+                                 disabled="@( (grupoPerfil != "Gestor" && grupoPerfil != "Colaborador" && (grupoPerfil != "Gestor Central" || subtipoPerfil != "Ateste")) || (grupoPerfil == "Gestor" && subtipoPerfil == "Sem Setor") )">
                         <option value="0">Selecione...</option>
                         @if (centrosCusto is not null)
                         {
@@ -134,6 +135,13 @@ else
                             <InputCheckbox @bind-Value="ativo" class="form-check-input" id="ativoCheck" />
                             <label class="form-check-label" for="ativoCheck">Usuário ativo</label>
                         </div>
+                        @if (UserSession.UsuarioLogado?.Perfil == "Admin")
+                        {
+                            <div class="form-check ms-3">
+                                <InputCheckbox @bind-Value="isTeste" class="form-check-input" id="testeCheck" />
+                                <label class="form-check-label text-purple fw-semibold" for="testeCheck">É usuário de Teste?</label>
+                            </div>
+                        }
                         @if (editando && IdUsuario != UserSession.UsuarioLogado?.Id && UserSession.UsuarioLogado?.Perfil ==
                 "Admin")
                         {
@@ -211,6 +219,7 @@ else
     private int centroCustoId;
     private string senha = "";
     private bool ativo = true;
+    private bool isTeste = false;
 
     private List<CentroCusto>? centrosCusto;
     private Usuario? usuarioEditando;
@@ -245,7 +254,7 @@ else
 
             bool podeEditar = eEleMesmo || perfilLogado == "Admin" ||
                              (perfilLogado == "Gestor Central Ateste" && perfilAlvo != "Admin" && perfilAlvo != "Gestor Central Ateste") ||
-                             (perfilLogado == "Gestor Central Padrão" && (perfilAlvo == "Gestor Titular" || perfilAlvo == "Gestor Substituto"));
+                             (perfilLogado == "Gestor Central Padrão" && (perfilAlvo == "Gestor Titular" || perfilAlvo == "Gestor Substituto" || perfilAlvo == "Gestor Sem Setor"));
             
             if (!podeEditar)
             {
@@ -276,6 +285,7 @@ else
 
             centroCustoId = usuarioEditando.CentroCustoId ?? 0;
             ativo = usuarioEditando.Ativo;
+            isTeste = usuarioEditando.IsTeste;
         }
     }
 
@@ -333,16 +343,17 @@ else
             }
 
             var isGestorCentralPadrao = grupoPerfil == "Gestor Central" && subtipoPerfil == "Padrão";
+            var isGestorSemSetor = grupoPerfil == "Gestor" && subtipoPerfil == "Sem Setor";
 
-            if (grupoPerfil != "Admin" && !isGestorCentralPadrao && centroCustoId <= 0)
+            if (grupoPerfil != "Admin" && !isGestorCentralPadrao && !isGestorSemSetor && centroCustoId <= 0)
             {
                 erro = "É obrigatório selecionar um Centro de Custo para este perfil.";
                 return;
             }
 
-            if (grupoPerfil == "Admin" || isGestorCentralPadrao)
+            if (grupoPerfil == "Admin" || isGestorCentralPadrao || isGestorSemSetor)
             {
-                centroCustoId = 0; // Admin e Gestor Central Padrão não precisam de centro de custo
+                centroCustoId = 0; // Não precisam de centro de custo
             }
 
             var perfilFinal = grupoPerfil;
@@ -352,9 +363,9 @@ else
             }
 
             bool eEleMesmoNoSalvar = editando && usuarioEditando?.Id == UserSession.UsuarioLogado?.Id;
-            if (UserSession.UsuarioLogado!.Perfil == "Gestor Central Padrão" && perfilFinal != "Gestor Titular" && perfilFinal != "Gestor Substituto" && !eEleMesmoNoSalvar)
+            if (UserSession.UsuarioLogado!.Perfil == "Gestor Central Padrão" && perfilFinal != "Gestor Titular" && perfilFinal != "Gestor Substituto" && perfilFinal != "Gestor Sem Setor" && !eEleMesmoNoSalvar)
             {
-                erro = "Gestores Centrais Padrão só podem gerenciar e criar perfis de Gestor Titular e Substituto.";
+                erro = "Gestores Centrais Padrão só podem gerenciar e criar perfis de Gestores comuns (Titular, Substituto ou Sem Setor).";
                 return;
             }
 
@@ -382,6 +393,11 @@ else
 
                 usuarioEditando.CentroCustoId = centroCustoId > 0 ? centroCustoId : null;
                 usuarioEditando.Ativo = ativo;
+                
+                if (UserSession.UsuarioLogado!.Perfil == "Admin")
+                {
+                    usuarioEditando.IsTeste = isTeste;
+                }
 
                 if (!string.IsNullOrWhiteSpace(senha))
                 {
@@ -402,6 +418,7 @@ else
                     Perfil = perfilFinal,
                     CentroCustoId = centroCustoId > 0 ? centroCustoId : null,
                     Ativo = ativo,
+                    IsTeste = UserSession.UsuarioLogado!.Perfil == "Admin" ? isTeste : false,
                     ContadorAcessos = 0
                 };
                 // Senha inicial = Ponto do usuário
@@ -416,6 +433,7 @@ else
                 cpf = null;
                 centroCustoId = 0;
                 ativo = true;
+                isTeste = false;
             }
         }
         catch (Exception ex)
