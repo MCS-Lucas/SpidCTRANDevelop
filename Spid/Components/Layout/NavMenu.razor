@@ -22,7 +22,7 @@
             <span class="category-title">Ateste</span>
             <Icon Name="@(isAtesteOpen ? "chevron-down" : "chevron-up")" Size="12" Class="category-icon" />
         </div>
-        
+
         <div class="nav-subcategory @(isAtesteOpen ? "expanded" : "collapsed")">
             <div class="nav-item px-3">
                 <NavLink class="nav-link" href="" Match="NavLinkMatch.All">
@@ -44,7 +44,7 @@
             <span class="category-title">Gestão</span>
             <Icon Name="@(isGestaoOpen ? "chevron-down" : "chevron-up")" Size="12" Class="category-icon" />
         </div>
-        
+
         <div class="nav-subcategory @(isGestaoOpen ? "expanded" : "collapsed")">
             @if (podeImportar)
             {
@@ -75,8 +75,36 @@
                 </NavLink>
             </div>
         </div>
+
+        <div class="nav-category mt-4 mb-4" @onclick="AbrirModalSuporte">
+            <span class="category-title">CONTATO SUPORTE</span>
+            <Icon Name="headset" Size="14" Class="category-icon" />
+        </div>
     </nav>
 </div>
+
+@if (isModalSuporteAberto)
+{
+    <div class="modal d-block" tabindex="-1" style="background-color: rgba(0,0,0,0.5);">
+        <div class="modal-dialog modal-dialog-centered">
+            <div class="modal-content border-0 shadow-lg" style="color: #333;">
+                <div class="modal-header text-white" style="background: linear-gradient(135deg, #1a73e8, #1557ad);">
+                    <h5 class="modal-title">CONTATO SUPORTE</h5>
+                    <button type="button" class="btn-close btn-close-white" @onclick="FecharModalSuporte"></button>
+                </div>
+                <div class="modal-body text-center p-4">
+                    <p class="mb-3">A funcionalidade de <strong>Abrir Chamados</strong> será adicionada em breve!</p>
+                    <p class="mb-3">Enquanto isso, fale diretamente com o suporte pelos ramais:</p>
+                    <h5 class="mb-1" style="color: #1a73e8; font-weight: 700;">6-3116 Dani</h5>
+                    <h5 class="mb-0" style="color: #1a73e8; font-weight: 700;">6-3142 Flávia</h5>
+                </div>
+                <div class="modal-footer bg-light justify-content-center">
+                    <button type="button" class="btn btn-primary px-4" @onclick="FecharModalSuporte" style="background: linear-gradient(135deg, #1a73e8, #1557ad); border: none;">Entendido</button>
+                </div>
+            </div>
+        </div>
+    </div>
+}
 
 @code {
     private bool podeImportar;
@@ -85,6 +113,7 @@
 
     private bool isAtesteOpen = true; // Dashboard default
     private bool isGestaoOpen = false;
+    private bool isModalSuporteAberto = false;
 
     protected override async Task OnInitializedAsync()
     {
@@ -116,7 +145,7 @@
     private void CheckActiveMenu(string url)
     {
         var relativeUrl = NavManager.ToBaseRelativePath(url).Split('?')[0].TrimEnd('/');
-        
+
         if (relativeUrl == "" || relativeUrl == "atestar-viagens")
         {
             isAtesteOpen = true;
@@ -130,6 +159,9 @@
 
     private void ToggleAteste() => isAtesteOpen = !isAtesteOpen;
     private void ToggleGestao() => isGestaoOpen = !isGestaoOpen;
+
+    private void AbrirModalSuporte() => isModalSuporteAberto = true;
+    private void FecharModalSuporte() => isModalSuporteAberto = false;
 
     public void Dispose()
     {

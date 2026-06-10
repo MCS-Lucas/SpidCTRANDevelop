@@ -181,7 +181,7 @@ else
         }
 
         var perfilLogado = UserSession.UsuarioLogado!.Perfil;
-        eGestorComum = perfilLogado == "Gestor Titular" || perfilLogado == "Gestor Substituto";
+        eGestorComum = perfilLogado == "Gestor Titular" || perfilLogado == "Gestor Substituto" || perfilLogado == "Gestor Sem Setor";
         bloquearPerfil = eGestorComum || perfilLogado == "Gestor Central Padrão";
         isAdmin = perfilLogado == "Admin" || perfilLogado.StartsWith("Gestor Central");
 

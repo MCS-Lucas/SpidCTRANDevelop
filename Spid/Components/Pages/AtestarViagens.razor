@@ -90,6 +90,7 @@ else
                     <option value="">Todos</option>
                     <option value="Pendente">Pendente</option>
                     <option value="OK">OK</option>
+                    <option value="Considerado">Considerada</option>
                     <option value="Contestada">Contestada</option>
                 </select>
             </div>
@@ -108,13 +109,22 @@ else
 
     @if (mesEncerradoParaGestor)
     {
-        <div class="alert alert-danger d-flex align-items-center gap-2">
+        <div class="alert alert-danger d-flex align-items-center gap-2 mb-4">
             <Icon Name="lock" Size="16" />
             <span>
                 <strong>Mês encerrado!</strong> O mês de
                 @System.Globalization.CultureInfo.GetCultureInfo("pt-BR").DateTimeFormat.GetMonthName(mesSelecionado)/@anoSelecionado
-                foi encerrado@(nomeQuemEncerrou is not null ? $" por {nomeQuemEncerrou}" : "").
+                foi encerrado.
                 Não é possível atestar ou contestar viagens deste período.
+            </span>
+        </div>
+    }
+    else if (!isAdmin)
+    {
+        <div class="alert alert-warning d-flex align-items-center gap-2 mb-4">
+            <Icon Name="circle-exclamation" Size="16" />
+            <span>
+                <strong>Atenção!</strong> Após o encerramento do prazo de confirmação, viagens que não forem confirmadas serão consideradas Atestadas!
             </span>
         </div>
     }
@@ -133,7 +143,7 @@ else
         <div class="col-md-4">
             <div class="card text-center border-success">
                 <div class="card-body py-2">
-                    <div class="fs-3 fw-bold text-success">@viagens.Count(v => v.StatusConferenciaGestor == "OK")</div>
+                    <div class="fs-3 fw-bold text-success">@viagens.Count(v => v.StatusConferenciaGestor == "OK" || v.StatusConferenciaGestor == "Considerado")</div>
                     <small class="text-muted">Aprovadas</small>
                 </div>
             </div>
@@ -163,6 +173,7 @@ else
                 <option value="20">20</option>
                 <option value="30">30</option>
                 <option value="50">50</option>
+                <option value="100">100</option>
             </select>
             <small class="text-muted">viagens por página</small>
         </div>
@@ -175,6 +186,7 @@ else
         <table class="table table-hover align-middle">
             <thead class="table-dark">
                 <tr>
+                    <th class="text-center border-end border-dark" style="width: 50px;">#</th>
                     <th class="text-center" role="button" @onclick="AlternarOrdemData" style="cursor:pointer;">
                         Início da Viagem @(ordenarDataAsc ? "▲" : "▼")
                     </th>
@@ -190,9 +202,11 @@ else
                 </tr>
             </thead>
             <tbody>
+                @{ int rowIndex = (paginaAtual - 1) * itensPorPagina + 1; }
                 @foreach (var v in viagensPaginadas)
                 {
                     <tr>
+                        <td class="text-center text-muted fw-bold border-end border-dark">@(rowIndex++)</td>
                         <td class="text-center">
                             @v.DataViagem.ToString("dd/MM/yyyy")<br />
                             @v.HoraInicio.ToString("HH:mm")
@@ -218,6 +232,11 @@ else
                                 case "OK":
                                     <span class="badge bg-success">
                                         <Icon Name="circle-check" Size="12" /> Atestada
+                                    </span>
+                                    break;
+                                case "Considerado":
+                                    <span class="badge bg-success bg-opacity-75">
+                                        <Icon Name="circle-check" Size="12" /> Considerada
                                     </span>
                                     break;
                                 case "Contestada":
@@ -248,9 +267,17 @@ else
                                 }
                                 else
                                 {
-                                    <button class="btn btn-sm btn-outline-secondary" @onclick="() => SolicitarReversao(v)">
-                                        <Icon Name="rotate-left" Size="14" /> Reverter
-                                    </button>
+                                    bool viagemBloqueada = mesFoiLiberado && v.StatusConferenciaGestor != "Considerado" && v.DataConferencia < dataLiberacao;
+                                    if (viagemBloqueada)
+                                    {
+                                        <span class="text-muted small">Sem permissão</span>
+                                    }
+                                    else
+                                    {
+                                        <button class="btn btn-sm btn-outline-secondary" @onclick="() => SolicitarReversao(v)">
+                                            <Icon Name="rotate-left" Size="14" /> Reverter
+                                        </button>
+                                    }
                                 }
                             }
                         </td>
@@ -456,6 +483,8 @@ else
     private bool isAdmin;
     private bool isSomenteLeitura = false;
     private bool mesEncerradoParaGestor = false;
+    private bool mesFoiLiberado = false;
+    private DateTime? dataLiberacao = null;
     private string? nomeQuemEncerrou;
 
     private int mesSelecionado = DateTime.Now.Month;
@@ -478,7 +507,7 @@ else
 
     // Ordenação e paginação
     private bool ordenarDataAsc;
-    private int itensPorPagina = 10;
+    private int itensPorPagina = 100;
     private int paginaAtual = 1;
     private int totalPaginas => (int)Math.Ceiling((double)viagensFiltradas.Count / itensPorPagina);
     private List<Viagem> viagensPaginadas => viagensFiltradas
@@ -552,17 +581,26 @@ else
 
         // Verificar encerramento do mês para gestores comuns
         mesEncerradoParaGestor = false;
+        mesFoiLiberado = false;
         nomeQuemEncerrou = null;
-        if (perfil == "Gestor Titular" || perfil == "Gestor Substituto")
+        if (perfil == "Gestor Titular" || perfil == "Gestor Substituto" || perfil == "Gestor Sem Setor")
         {
             var encerramento = await Db.EncerramentosMensais
                 .Include(e => e.EncerradoPor)
-                .FirstOrDefaultAsync(e => e.Ano == anoSelecionado && e.Mes == mesSelecionado && e.Encerrado);
+                .FirstOrDefaultAsync(e => e.Ano == anoSelecionado && e.Mes == mesSelecionado);
             if (encerramento is not null)
             {
-                mesEncerradoParaGestor = true;
-                isSomenteLeitura = true;
-                nomeQuemEncerrou = encerramento.EncerradoPor?.Nome;
+                if (encerramento.Encerrado)
+                {
+                    mesEncerradoParaGestor = true;
+                    isSomenteLeitura = true;
+                    nomeQuemEncerrou = encerramento.EncerradoPor?.Nome;
+                }
+                else
+                {
+                    mesFoiLiberado = true;
+                    dataLiberacao = encerramento.DataLiberacao;
+                }
             }
         }
 
@@ -580,6 +618,11 @@ else
         if (centroCustoId.HasValue)
         {
             query = query.Where(v => v.CentroCustoId == centroCustoId.Value);
+        }
+        else if (!isAdmin)
+        {
+            // Gestores sem setor não têm acesso às viagens de outros setores
+            query = query.Where(v => false);
         }
 
         viagens = await query
