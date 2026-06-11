@@ -21,63 +21,7 @@
 }
 else
 {
-    <!-- Filtro e Resumo -->
-    <div class="card shadow-sm mb-4">
-        <div class="card-body d-flex align-items-center gap-3 flex-wrap">
-            <!-- Filtros -->
-            <div class="flex-shrink-0">
-                <label class="form-label small mb-1">Mês</label>
-                <div class="d-flex align-items-center gap-1">
-                    <button class="filter-btn" @onclick="MesAnterior" disabled="@(mesSelecionado <= 1)">&#9664;</button>
-                    <select class="filter-select" @bind="mesSelecionado" @bind:after="Carregar">
-                        @for (int m = 1; m <= 12; m++)
-                        {
-                            var mes = m;
-                            <option value="@mes">@System.Globalization.CultureInfo.GetCultureInfo("pt-BR").DateTimeFormat.GetMonthName(mes)</option>
-                        }
-                    </select>
-                    <button class="filter-btn" @onclick="MesSeguinte" disabled="@(mesSelecionado >= 12)">&#9654;</button>
-                </div>
-            </div>
-            <div class="flex-shrink-0 d-flex flex-column">
-                <label class="form-label small mb-1">Ano</label>
-                <select class="filter-select" @bind="anoSelecionado" @bind:after="Carregar">
-                    @foreach (var a in anosDisponiveis)
-                    {
-                        <option value="@a">@a</option>
-                    }
-                </select>
-            </div>
-            <!-- Cards de resumo na mesma linha -->
-            @if (centrosCustoStatus is not null && centrosCustoStatus.Count > 0)
-            {
-                <div class="flex-grow-1 d-flex gap-3">
-                    <div class="flex-fill">
-                        <div class="card text-center border-success h-100">
-                            <div class="card-body py-2">
-                                <div class="fs-3 fw-bold text-success">@centrosCustoStatus.Count(s => s.Confirmado && s.Pendentes == 0)</div>
-                                <small class="text-muted">Centros de Custo Confirmados</small>
-                            </div>
-                        </div>
-                    </div>
-                    <div class="flex-fill">
-                        <div class="card text-center border-warning h-100">
-                            <div class="card-body py-2">
-                                <div class="fs-3 fw-bold text-warning">@centrosCustoStatus.Count(s => !s.Confirmado || s.Pendentes > 0)</div>
-                                <small class="text-muted">Centros de Custo Pendentes</small>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            }
-        </div>
-    </div>
-
-    @if (centrosCustoStatus is null)
-    {
-        <p class="text-muted">Carregando...</p>
-    }
-    else
+    @if (centrosCustoStatus is not null)
     {
         <!-- Card de Encerramento do Mês -->
         <div class="card shadow-sm mb-4 @(mesEncerrado ? "border-danger" : "border-success")">
@@ -142,6 +86,68 @@ else
                 </div>
             </div>
         </div>
+    }
+
+    <!-- Filtro e Resumo -->
+    <div class="card shadow-sm mb-4">
+        <div class="card-body d-flex align-items-center gap-3 flex-wrap">
+            <!-- Filtros -->
+            <div class="flex-shrink-0">
+                <label class="form-label small mb-1">Mês</label>
+                <div class="d-flex align-items-center gap-1">
+                    <button class="filter-btn" @onclick="MesAnterior" disabled="@(mesSelecionado <= 1)">&#9664;</button>
+                    <select class="filter-select" @bind="mesSelecionado" @bind:after="Carregar">
+                        @for (int m = 1; m <= 12; m++)
+                        {
+                            var mes = m;
+                            <option value="@mes">@System.Globalization.CultureInfo.GetCultureInfo("pt-BR").DateTimeFormat.GetMonthName(mes)</option>
+                        }
+                    </select>
+                    <button class="filter-btn" @onclick="MesSeguinte" disabled="@(mesSelecionado >= 12)">&#9654;</button>
+                </div>
+            </div>
+            <div class="flex-shrink-0 d-flex flex-column">
+                <label class="form-label small mb-1">Ano</label>
+                <select class="filter-select" @bind="anoSelecionado" @bind:after="Carregar">
+                    @foreach (var a in anosDisponiveis)
+                    {
+                        <option value="@a">@a</option>
+                    }
+                </select>
+            </div>
+            <!-- Novo Campo Pesquisar -->
+            <div class="flex-shrink-0 d-flex flex-column">
+                <label class="form-label small mb-1">Pesquisar</label>
+                <input type="text" class="form-control form-control-sm" style="width: 200px;" placeholder="Buscar..." @bind="filtroPesquisa" @bind:after="OrdenarStatus" />
+            </div>
+            <!-- Cards de resumo na mesma linha -->
+            @if (centrosCustoStatus is not null && centrosCustoStatus.Count > 0)
+            {
+                <div class="flex-grow-1 d-flex gap-3">
+                    <div class="flex-fill">
+                        <div class="card text-center border-success h-100">
+                            <div class="card-body py-2">
+                                <div class="fs-3 fw-bold text-success">@centrosCustoStatus.Count(s => s.Confirmado && s.Pendentes == 0)</div>
+                                <small class="text-muted">Centros de Custo Confirmados</small>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="flex-fill">
+                        <div class="card text-center border-warning h-100">
+                            <div class="card-body py-2">
+                                <div class="fs-3 fw-bold text-warning">@centrosCustoStatus.Count(s => !s.Confirmado || s.Pendentes > 0)</div>
+                                <small class="text-muted">Centros de Custo Pendentes</small>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            }
+        </div>
+    </div>
+
+    @if (centrosCustoStatus is null)
+    {
+        <p class="text-muted">Carregando...</p>
     }
 
     <!-- Modais de Confirmação -->
@@ -211,11 +217,11 @@ else
         </div>
     }
 
-    @if (centrosCustoStatus is not null && centrosCustoStatus.Count == 0)
+    @if (centrosCustoStatusExibicao is not null && centrosCustoStatusExibicao.Count == 0)
     {
-        <div class="alert alert-info">Nenhum centro de custo com viagens neste mês.</div>
+        <div class="alert alert-info">Nenhum centro de custo encontrado com os filtros selecionados.</div>
     }
-    else if (centrosCustoStatus is not null && centrosCustoStatus.Count > 0)
+    else if (centrosCustoStatusExibicao is not null && centrosCustoStatusExibicao.Count > 0)
     {
         <div class="table-responsive">
             <table class="table table-hover align-middle">
@@ -234,7 +240,7 @@ else
                     </tr>
                 </thead>
                 <tbody>
-                    @foreach (var s in centrosCustoStatus)
+                    @foreach (var s in centrosCustoStatusExibicao)
                     {
                         <tr>
                             <td class="text-center"><strong>@s.CentroCustoNome</strong></td>
@@ -545,6 +551,8 @@ else
     private int anoSelecionado = DateTime.Now.Year;
     private List<int> anosDisponiveis = new();
     private List<CentroCustoStatusDto>? centrosCustoStatus;
+    private List<CentroCustoStatusDto>? centrosCustoStatusExibicao;
+    private string filtroPesquisa = "";
 
     // Encerramento mensal
     private EncerramentoMensal? encerramentoRegistro;
@@ -628,7 +636,9 @@ else
                 Aprovadas = g.Count(v => v.StatusConferenciaGestor == "OK" || v.StatusConferenciaGestor == "Considerado"),
                 Contestadas = g.Count(v => v.StatusConferenciaGestor == "Contestada")
             })
-            .ToListAsync();
+            .ToDictionaryAsync(g => g.CentroCustoId);
+
+        var todosCentrosCusto = await Db.CentrosCusto.ToListAsync();
 
         // Confirmações do mês
         var confirmacoes = await Db.ConferenciasMensais
@@ -641,7 +651,7 @@ else
         // 2. Gestor Titular
         // 3. Gestor Substituto
         var gestoresAptos = await Db.Usuarios
-            .Where(u => u.CentroCustoId.HasValue && u.Ativo && 
+            .Where(u => u.CentroCustoId.HasValue && u.Ativo && !u.IsTeste && 
                         (u.Perfil == "Gestor Central Ateste" || u.Perfil == "Gestor Titular" || u.Perfil == "Gestor Substituto"))
             .Select(u => new { u.CentroCustoId, u.Nome, u.Perfil })
             .ToListAsync();
@@ -655,18 +665,19 @@ else
                       .First().Nome
             );
 
-        centrosCustoStatus = viagensPorCentroCusto.Select(v =>
+        centrosCustoStatus = todosCentrosCusto.Select(c =>
         {
-            var conf = confirmacoes.GetValueOrDefault(v.CentroCustoId);
+            var v = viagensPorCentroCusto.GetValueOrDefault(c.Id);
+            var conf = confirmacoes.GetValueOrDefault(c.Id);
             return new CentroCustoStatusDto
             {
-                CentroCustoId = v.CentroCustoId,
-                CentroCustoNome = v.CentroCustoNome,
-                TotalViagens = v.Total,
-                Pendentes = v.Pendentes,
-                Aprovadas = v.Aprovadas,
-                Contestadas = v.Contestadas,
-                GestorPrincipal = gestorPorCentroCusto.GetValueOrDefault(v.CentroCustoId) ?? "",
+                CentroCustoId = c.Id,
+                CentroCustoNome = c.Nome,
+                TotalViagens = v?.Total ?? 0,
+                Pendentes = v?.Pendentes ?? 0,
+                Aprovadas = v?.Aprovadas ?? 0,
+                Contestadas = v?.Contestadas ?? 0,
+                GestorPrincipal = gestorPorCentroCusto.GetValueOrDefault(c.Id) ?? "",
                 Confirmado = conf is not null,
                 ConfirmadoPor = conf?.Usuario.Nome,
                 DataConfirmacao = conf?.DataConfirmacao
@@ -819,6 +830,7 @@ else
 
     private bool ordenarStatusAsc;
 
+
     private void AlternarOrdemStatus()
     {
         ordenarStatusAsc = !ordenarStatusAsc;
@@ -831,15 +843,56 @@ else
 
         int GetStatusUrgencia(CentroCustoStatusDto s)
         {
+            if (s.TotalViagens == 0) return 4;
             if (s.Confirmado && s.Pendentes > 0) return 1;
             if (s.Confirmado) return 3;
             if (s.Pendentes == 0 && s.TotalViagens > 0) return 2;
             return 0;
         }
 
-        centrosCustoStatus = ordenarStatusAsc
-            ? centrosCustoStatus.OrderBy(GetStatusUrgencia).ThenBy(s => s.CentroCustoNome).ToList()
-            : centrosCustoStatus.OrderByDescending(GetStatusUrgencia).ThenBy(s => s.CentroCustoNome).ToList();
+        int GetCategoria(CentroCustoStatusDto s)
+        {
+            bool temViagens = s.TotalViagens > 0;
+            bool temGestor = !string.IsNullOrEmpty(s.GestorPrincipal);
+
+            if (temViagens && temGestor) return 1;
+            if (temViagens && !temGestor) return 2;
+            if (!temViagens && temGestor) return 3;
+            return 4;
+        }
+
+        string ObterStatusTexto(CentroCustoStatusDto s)
+        {
+            if (s.Confirmado && s.Pendentes > 0) return "Novas Pendências";
+            if (s.Confirmado) return "Confirmado";
+            if (mesEncerrado) return "Encerrado";
+            if (s.Pendentes == 0 && s.TotalViagens > 0) return "Aguardando confirmação";
+            return "Pendente";
+        }
+
+        var query = centrosCustoStatus.AsEnumerable();
+
+        if (!string.IsNullOrWhiteSpace(filtroPesquisa))
+        {
+            query = query.Where(s => 
+                s.CentroCustoNome.Contains(filtroPesquisa, StringComparison.OrdinalIgnoreCase) ||
+                (s.GestorPrincipal != null && s.GestorPrincipal.Contains(filtroPesquisa, StringComparison.OrdinalIgnoreCase)) ||
+                (s.ConfirmadoPor != null && s.ConfirmadoPor.Contains(filtroPesquisa, StringComparison.OrdinalIgnoreCase)) ||
+                (s.DataConfirmacao.HasValue && s.DataConfirmacao.Value.ToString("dd/MM/yyyy HH:mm").Contains(filtroPesquisa, StringComparison.OrdinalIgnoreCase)) ||
+                (s.DataConfirmacao.HasValue && s.DataConfirmacao.Value.ToString("dd/MM HH:mm").Contains(filtroPesquisa, StringComparison.OrdinalIgnoreCase)) ||
+                ObterStatusTexto(s).Contains(filtroPesquisa, StringComparison.OrdinalIgnoreCase)
+            );
+        }
+
+        centrosCustoStatusExibicao = ordenarStatusAsc
+            ? query.OrderBy(s => GetCategoria(s))
+                   .ThenByDescending(s => GetStatusUrgencia(s))
+                   .ThenBy(s => s.CentroCustoNome)
+                   .ToList()
+            : query.OrderBy(s => GetCategoria(s))
+                   .ThenBy(s => GetStatusUrgencia(s))
+                   .ThenByDescending(s => s.CentroCustoNome)
+                   .ToList();
     }
 
 

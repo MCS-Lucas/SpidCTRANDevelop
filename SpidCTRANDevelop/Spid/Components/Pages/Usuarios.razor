@@ -69,6 +69,16 @@ else
                         Incluir Inativos
                     </label>
                 </div>
+
+                @if (UserSession.UsuarioLogado?.Perfil == "Admin")
+                {
+                    <div class="form-check form-switch ms-2 mt-1">
+                        <input class="form-check-input" type="checkbox" role="switch" id="checkApenasTeste" @bind="apenasDeTeste" @bind:after="AplicarFiltrosEOrdenacao">
+                        <label class="form-check-label text-nowrap user-select-none" for="checkApenasTeste" style="cursor: pointer;">
+                            Apenas de Teste
+                        </label>
+                    </div>
+                }
             </div>
             
             <div class="ms-auto">
@@ -162,6 +172,7 @@ else
     private string subtipoSelecionado = "Todos";
     private bool ordenarNomeAsc = true;
     private bool incluirInativos = false;
+    private bool apenasDeTeste = false;
 
     protected override async Task OnInitializedAsync()
     {
@@ -251,6 +262,15 @@ else
         if (!incluirInativos)
         {
             query = query.Where(u => u.Ativo);
+        }
+
+        if (apenasDeTeste)
+        {
+            query = query.Where(u => u.IsTeste);
+        }
+        else
+        {
+            query = query.Where(u => !u.IsTeste);
         }
 
         // 1. Filtrar por Perfil
