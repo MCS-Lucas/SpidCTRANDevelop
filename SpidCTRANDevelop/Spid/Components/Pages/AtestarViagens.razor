@@ -56,53 +56,79 @@ else if (viagens is null)
 }
 else
 {
-    <!-- Filtros -->
+    <!-- Filtros e Resumo -->
     <div class="card shadow-sm mb-4">
-        <div class="card-body d-flex gap-3 align-items-end flex-wrap">
-            <div>
-                <label class="form-label small mb-1">Mês</label>
-                <div class="d-flex align-items-center gap-1">
-                    <button class="filter-btn" @onclick="MesAnterior" disabled="@(mesSelecionado <= 1)">&#9664;</button>
-                    <select class="filter-select" @bind="mesSelecionado" @bind:after="CarregarViagens">
-                        @for (int m = 1; m <= 12; m++)
+        <div class="card-body d-flex align-items-center gap-3 flex-wrap">
+            <!-- Filtros -->
+            <div class="d-flex gap-3 align-items-end flex-wrap flex-shrink-0">
+                <div>
+                    <label class="form-label small mb-1">Mês</label>
+                    <div class="d-flex align-items-center gap-1">
+                        <button class="filter-btn" @onclick="MesAnterior" disabled="@(mesSelecionado <= 1)">&#9664;</button>
+                        <select class="filter-select" @bind="mesSelecionado" @bind:after="CarregarViagens">
+                            @for (int m = 1; m <= 12; m++)
+                            {
+                                var mes = m;
+                                <option value="@mes">
+                                    @System.Globalization.CultureInfo.GetCultureInfo("pt-BR").DateTimeFormat.GetMonthName(mes)
+                                </option>
+                            }
+                        </select>
+                        <button class="filter-btn" @onclick="MesSeguinte" disabled="@(mesSelecionado >= 12)">&#9654;</button>
+                    </div>
+                </div>
+                <div>
+                    <label class="form-label small mb-1">Ano</label>
+                    <select class="filter-select" @bind="anoSelecionado" @bind:after="CarregarViagens">
+                        @foreach (var a in anosDisponiveis)
                         {
-                            var mes = m;
-                            <option value="@mes">
-                                @System.Globalization.CultureInfo.GetCultureInfo("pt-BR").DateTimeFormat.GetMonthName(mes)
-                            </option>
+                            <option value="@a">@a</option>
                         }
                     </select>
-                    <button class="filter-btn" @onclick="MesSeguinte" disabled="@(mesSelecionado >= 12)">&#9654;</button>
+                </div>
+                <div>
+                    <label class="form-label small mb-1">Status</label>
+                    <select class="filter-select" @bind="filtroStatus" @bind:after="Filtrar">
+                        <option value="">Todos</option>
+                        <option value="Pendente">Pendente</option>
+                        <option value="OK">OK</option>
+                        <option value="Considerado">Considerada</option>
+                        <option value="Contestada">Contestada</option>
+                    </select>
+                </div>
+                <div>
+                    <label class="form-label small mb-1">Pesquisar</label>
+                    <input type="text" class="form-control form-control-sm" placeholder="Buscar..." @bind="filtroPesquisa"
+                           @bind:after="Filtrar" />
                 </div>
             </div>
-            <div>
-                <label class="form-label small mb-1">Ano</label>
-                <select class="filter-select" @bind="anoSelecionado" @bind:after="CarregarViagens">
-                    @foreach (var a in anosDisponiveis)
-                    {
-                        <option value="@a">@a</option>
-                    }
-                </select>
-            </div>
-            <div>
-                <label class="form-label small mb-1">Status</label>
-                <select class="filter-select" @bind="filtroStatus" @bind:after="Filtrar">
-                    <option value="">Todos</option>
-                    <option value="Pendente">Pendente</option>
-                    <option value="OK">OK</option>
-                    <option value="Considerado">Considerada</option>
-                    <option value="Contestada">Contestada</option>
-                </select>
-            </div>
-            <div>
-                <label class="form-label small mb-1">Colaborador</label>
-                <input type="text" class="form-control form-control-sm" placeholder="Buscar..." @bind="filtroColaborador"
-                       @bind:after="Filtrar" />
-            </div>
-            <div>
-                <span class="badge bg-secondary align-self-center">
-                    @viagensFiltradas.Count viagem(ns)
-                </span>
+
+            <!-- Resumo -->
+            <div class="flex-grow-1 d-flex gap-3">
+                <div class="flex-fill">
+                    <div class="card text-center border-warning h-100">
+                        <div class="card-body py-2">
+                            <div class="fs-3 fw-bold text-warning">@viagens.Count(v => v.StatusConferenciaGestor == "Pendente")</div>
+                            <small class="text-muted">Pendentes</small>
+                        </div>
+                    </div>
+                </div>
+                <div class="flex-fill">
+                    <div class="card text-center border-success h-100">
+                        <div class="card-body py-2">
+                            <div class="fs-3 fw-bold text-success">@viagens.Count(v => v.StatusConferenciaGestor == "OK" || v.StatusConferenciaGestor == "Considerado")</div>
+                            <small class="text-muted">Aprovadas</small>
+                        </div>
+                    </div>
+                </div>
+                <div class="flex-fill">
+                    <div class="card text-center border-danger h-100">
+                        <div class="card-body py-2">
+                            <div class="fs-3 fw-bold text-danger">@viagens.Count(v => v.StatusConferenciaGestor == "Contestada")</div>
+                            <small class="text-muted">Contestadas</small>
+                        </div>
+                    </div>
+                </div>
             </div>
         </div>
     </div>
@@ -129,35 +155,7 @@ else
         </div>
     }
 
-    <!-- Resumo -->
-    <div class="row mb-4 g-3">
-        <div class="col-md-4">
-            <div class="card text-center border-warning">
-                <div class="card-body py-2">
-                    <div class="fs-3 fw-bold text-warning">@viagens.Count(v => v.StatusConferenciaGestor == "Pendente")
-                    </div>
-                    <small class="text-muted">Pendentes</small>
-                </div>
-            </div>
-        </div>
-        <div class="col-md-4">
-            <div class="card text-center border-success">
-                <div class="card-body py-2">
-                    <div class="fs-3 fw-bold text-success">@viagens.Count(v => v.StatusConferenciaGestor == "OK" || v.StatusConferenciaGestor == "Considerado")</div>
-                    <small class="text-muted">Aprovadas</small>
-                </div>
-            </div>
-        </div>
-        <div class="col-md-4">
-            <div class="card text-center border-danger">
-                <div class="card-body py-2">
-                    <div class="fs-3 fw-bold text-danger">@viagens.Count(v => v.StatusConferenciaGestor == "Contestada")
-                    </div>
-                    <small class="text-muted">Contestadas</small>
-                </div>
-            </div>
-        </div>
-    </div>
+
 
     @if (viagensFiltradas.Count == 0)
     {
@@ -176,9 +174,12 @@ else
                 <option value="100">100</option>
             </select>
             <small class="text-muted">viagens por página</small>
+            <span class="badge bg-secondary">
+                @viagensFiltradas.Count viagem(ns)
+            </span>
         </div>
         <small class="text-muted">
-            Página @paginaAtual de @totalPaginas &mdash; @viagensFiltradas.Count viagem(ns)
+            Página @paginaAtual de @totalPaginas
         </small>
     </div>
 
@@ -492,7 +493,7 @@ else
     private List<int> anosDisponiveis = new();
 
     private string filtroStatus = "";
-    private string filtroColaborador = "";
+    private string filtroPesquisa = "";
 
     private Viagem? viagemContestar;
     private string motivoContestacao = "";
@@ -655,9 +656,24 @@ else
         if (viagens is null) return;
 
         var resultado = viagens
-            .Where(v => string.IsNullOrEmpty(filtroStatus) || v.StatusConferenciaGestor == filtroStatus)
-            .Where(v => string.IsNullOrEmpty(filtroColaborador) ||
-                        v.Colaborador.Nome.Contains(filtroColaborador, StringComparison.OrdinalIgnoreCase));
+            .Where(v => string.IsNullOrEmpty(filtroStatus) || v.StatusConferenciaGestor == filtroStatus);
+
+        if (!string.IsNullOrWhiteSpace(filtroPesquisa))
+        {
+            resultado = resultado.Where(v =>
+                v.Colaborador.Nome.Contains(filtroPesquisa, StringComparison.OrdinalIgnoreCase) ||
+                v.Origem.Contains(filtroPesquisa, StringComparison.OrdinalIgnoreCase) ||
+                v.Destino.Contains(filtroPesquisa, StringComparison.OrdinalIgnoreCase) ||
+                (v.Motivo != null && v.Motivo.Contains(filtroPesquisa, StringComparison.OrdinalIgnoreCase)) ||
+                v.Parceiro.Nome.Contains(filtroPesquisa, StringComparison.OrdinalIgnoreCase) ||
+                v.ValorFinal.ToString("N2").Contains(filtroPesquisa, StringComparison.OrdinalIgnoreCase) ||
+                v.ValorFinal.ToString().Contains(filtroPesquisa, StringComparison.OrdinalIgnoreCase) ||
+                v.StatusConferenciaGestor.Contains(filtroPesquisa, StringComparison.OrdinalIgnoreCase) ||
+                v.DataViagem.ToString("dd/MM/yyyy").Contains(filtroPesquisa, StringComparison.OrdinalIgnoreCase) ||
+                v.HoraInicio.ToString("HH:mm").Contains(filtroPesquisa, StringComparison.OrdinalIgnoreCase) ||
+                v.HoraFim.ToString("HH:mm").Contains(filtroPesquisa, StringComparison.OrdinalIgnoreCase)
+            );
+        }
 
         viagensFiltradas = ordenarDataAsc
             ? resultado.OrderBy(v => v.DataViagem).ToList()
