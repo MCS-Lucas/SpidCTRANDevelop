@@ -28,10 +28,52 @@ public class ImportacaoService
         using var workbook = new XLWorkbook(stream);
         var ws = workbook.Worksheets.First();
 
+        // Mapeamento dinâmico de colunas pelo cabeçalho
+        var headerMap = new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase);
+        var headerRow = ws.Row(1);
+        int colCount = headerRow.LastCellUsed()?.Address.ColumnNumber ?? 0;
+        for (int i = 1; i <= colCount; i++)
+        {
+            var headerName = headerRow.Cell(i).GetString().Trim();
+            if (!string.IsNullOrWhiteSpace(headerName))
+            {
+                headerMap[headerName] = i;
+            }
+        }
+
+        int GetColIndex(int fallback, params string[] possibleNames)
+        {
+            foreach(var name in possibleNames)
+            {
+                if (headerMap.TryGetValue(name, out int idx)) return idx;
+            }
+            return fallback;
+        }
+
+        int colData = GetColIndex(1, "Data da Viagem");
+        int colNomeColab = GetColIndex(2, "Nome Colaborador");
+        int colCpf = GetColIndex(3, "CPF/CPNPJ", "CPF/CNPJ", "CPF");
+        int colCentroCusto = GetColIndex(4, "Centro de Custo");
+        int colOrigem = GetColIndex(5, "Origem");
+        int colDestino = GetColIndex(6, "Destino");
+        int colParceiro = GetColIndex(7, "Parceiro");
+        int colValorCotado = GetColIndex(8, "Valor Cotado");
+        int colValorFinal = GetColIndex(9, "Valor Final");
+        int colStatus = GetColIndex(10, "Status");
+        int colHoraSolicitacao = GetColIndex(-1, "Solicitação da Viagem");
+        int colHoraInicio = GetColIndex(11, "Início da Viagem");
+        int colHoraFim = GetColIndex(12, "Fim da Viagem");
+        int colDistancia = GetColIndex(13, "Distância (KM)", "Distância");
+        int colAvaliacao = GetColIndex(14, "Avaliação da Viagem");
+        int colMotivo = GetColIndex(15, "Motivo da Viagem");
+        int colIdViagem = GetColIndex(16, "ID Viagem Parceiro");
+
         // Pegar IDs de viagens já existentes para deduplicação
-        var idsExistentes = await _db.Viagens
+        var idsExistentesList = await _db.Viagens
             .Select(v => v.IdViagemParceiro)
-            .ToHashSetAsync();
+            .ToListAsync();
+        
+        var idsExistentes = new HashSet<string>(idsExistentesList, StringComparer.OrdinalIgnoreCase);
 
         // Cache de entidades para evitar consultas repetidas
         var centrosCustoCache = await _db.CentrosCusto.ToDictionaryAsync(s => s.Nome);
@@ -55,14 +97,14 @@ public class ImportacaoService
             {
                 try
                 {
-                    var idViagemParceiro = ws.Cell(row, 16).GetString().Trim();
+                    var idViagemParceiro = ws.Cell(row, colIdViagem).GetString().Trim();
                     if (string.IsNullOrWhiteSpace(idViagemParceiro) || idsExistentes.Contains(idViagemParceiro))
                         continue;
 
-                    var centroCusto = ws.Cell(row, 4).GetString().Trim();
-                    var parceiroNome = ws.Cell(row, 7).GetString().Trim();
-                    var cpf = ws.Cell(row, 3).GetString().Trim();
-                    var nomeColab = ws.Cell(row, 2).GetString().Trim();
+                    var centroCusto = ws.Cell(row, colCentroCusto).GetString().Trim();
+                    var parceiroNome = ws.Cell(row, colParceiro).GetString().Trim();
+                    var cpf = ws.Cell(row, colCpf).GetString().Trim();
+                    var nomeColab = ws.Cell(row, colNomeColab).GetString().Trim();
 
                     if (!centrosCustoCache.ContainsKey(centroCusto))
                     {
@@ -128,7 +170,7 @@ public class ImportacaoService
             {
                 try
                 {
-                    var idViagemParceiro = ws.Cell(row, 16).GetString().Trim();
+                    var idViagemParceiro = ws.Cell(row, colIdViagem).GetString().Trim();
 
                     if (string.IsNullOrWhiteSpace(idViagemParceiro) || idsExistentes.Contains(idViagemParceiro))
                     {
@@ -136,20 +178,23 @@ public class ImportacaoService
                         continue;
                     }
 
-                    var dataCell = ws.Cell(row, 1);
-                    var cpf = ws.Cell(row, 3).GetString().Trim();
-                    var centroCusto = ws.Cell(row, 4).GetString().Trim();
-                    var origem = ws.Cell(row, 5).GetString().Trim();
-                    var destino = ws.Cell(row, 6).GetString().Trim();
-                    var parceiroNome = ws.Cell(row, 7).GetString().Trim();
-                    var valorCotadoCell = ws.Cell(row, 8);
-                    var valorFinalCell = ws.Cell(row, 9);
-                    var statusOrigem = ws.Cell(row, 10).GetString().Trim();
-                    var horaInicioCell = ws.Cell(row, 11);
-                    var horaFimCell = ws.Cell(row, 12);
-                    var distanciaCell = ws.Cell(row, 13);
-                    var avaliacaoStr = ws.Cell(row, 14).GetString().Trim();
-                    var motivo = ws.Cell(row, 15).GetString().Trim();
+                    var dataCell = ws.Cell(row, colData);
+                    var cpf = ws.Cell(row, colCpf).GetString().Trim();
+                    var centroCusto = ws.Cell(row, colCentroCusto).GetString().Trim();
+                    var origem = ws.Cell(row, colOrigem).GetString().Trim();
+                    var destino = ws.Cell(row, colDestino).GetString().Trim();
+                    var parceiroNome = ws.Cell(row, colParceiro).GetString().Trim();
+                    var valorCotadoCell = ws.Cell(row, colValorCotado);
+                    var valorFinalCell = ws.Cell(row, colValorFinal);
+                    var statusOrigem = ws.Cell(row, colStatus).GetString().Trim();
+                    
+                    IXLCell? horaSolicitacaoCell = colHoraSolicitacao != -1 ? ws.Cell(row, colHoraSolicitacao) : null;
+                    
+                    var horaInicioCell = ws.Cell(row, colHoraInicio);
+                    var horaFimCell = ws.Cell(row, colHoraFim);
+                    var distanciaCell = ws.Cell(row, colDistancia);
+                    var avaliacaoStr = ws.Cell(row, colAvaliacao).GetString().Trim();
+                    var motivo = ws.Cell(row, colMotivo).GetString().Trim();
 
                     var centroCustoObj = centrosCustoCache[centroCusto];
                     var parceiro = parceirosCache[parceiroNome];
@@ -158,6 +203,13 @@ public class ImportacaoService
                     var dataViagem = ParseDateSafe(dataCell);
                     var valorCotado = ParseDecimalSafe(valorCotadoCell);
                     var valorFinal = ParseDecimalSafe(valorFinalCell);
+                    
+                    TimeOnly? horaSolicitacao = null;
+                    if (horaSolicitacaoCell != null && !string.IsNullOrWhiteSpace(horaSolicitacaoCell.GetString()))
+                    {
+                        horaSolicitacao = ParseTimeOnlySafe(horaSolicitacaoCell);
+                    }
+                    
                     var horaInicio = ParseTimeOnlySafe(horaInicioCell);
                     var horaFim = ParseTimeOnlySafe(horaFimCell);
                     var distancia = (double)ParseDecimalSafe(distanciaCell);
@@ -171,6 +223,7 @@ public class ImportacaoService
                         ValorCotado = valorCotado,
                         ValorFinal = valorFinal,
                         StatusOrigem = statusOrigem,
+                        HoraSolicitacao = horaSolicitacao,
                         HoraInicio = horaInicio,
                         HoraFim = horaFim,
                         DistanciaKm = distancia,

@@ -77,6 +77,10 @@ public class AppDbContext : DbContext
 
         // Precisão time(0) para horários — armazena apenas HH:MM:SS, sem frações
         modelBuilder.Entity<Viagem>()
+            .Property(v => v.HoraSolicitacao)
+            .HasColumnType("time(0)");
+
+        modelBuilder.Entity<Viagem>()
             .Property(v => v.HoraInicio)
             .HasColumnType("time(0)");
 

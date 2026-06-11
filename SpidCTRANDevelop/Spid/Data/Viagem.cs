@@ -12,6 +12,7 @@ public class Viagem
     public decimal ValorFinal { get; set; }
     public string StatusOrigem { get; set; } = null!;
 
+    public TimeOnly? HoraSolicitacao { get; set; }
     public TimeOnly HoraInicio { get; set; }
     public TimeOnly HoraFim { get; set; }
     public double DistanciaKm { get; set; }
