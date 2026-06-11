@@ -215,6 +215,7 @@ app.MapGet("/login", (HttpContext ctx) =>
         "campos" => """<div class="alert alert-danger" role="alert">Preencha o ponto e a senha.</div>""",
         "usuario" => """<div class="alert alert-danger" role="alert">Ponto não encontrado ou usuário inativo.</div>""",
         "senha" => """<div class="alert alert-danger" role="alert">Senha incorreta.</div>""",
+        "faltap" => """<div class="alert alert-warning" role="alert">O Ponto deve começar com <strong>P_</strong>. Ex: P_123456</div>""",
         _ => ""
     };
 
@@ -418,7 +419,19 @@ app.MapPost("/do-login", async (HttpContext ctx, AppDbContext db) =>
         .FirstOrDefaultAsync(u => u.Ponto == ponto && u.Ativo);
 
     if (usuario is null)
+    {
+        if (!ponto.StartsWith("P_", StringComparison.OrdinalIgnoreCase))
+        {
+            var possivelPonto = "P_" + ponto;
+            bool esqueceuP = ponto.Length > 4 || await db.Usuarios.AnyAsync(u => u.Ponto.ToLower() == possivelPonto.ToLower() && u.Ativo);
+            
+            if (esqueceuP)
+            {
+                return Results.Redirect("/login?erro=faltap");
+            }
+        }
         return Results.Redirect("/login?erro=usuario");
+    }
 
     var hasher = new Microsoft.AspNetCore.Identity.PasswordHasher<Usuario>();
     var result = hasher.VerifyHashedPassword(usuario, usuario.SenhaHash, senha);
